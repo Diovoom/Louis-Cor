@@ -17,10 +17,20 @@ function Select({label,value,onChange,options}){return h('label',{className:'a-f
 function Button({children,onClick,disabled=false,kind='primary'}){return h('button',{type:'button',className:'a-btn '+kind,onClick,disabled},children)}
 function Icon({name}){return h('span',{'aria-hidden':'true'}, {overview:'◫',products:'▣',orders:'▤',shipping:'⇢',customers:'♙',settings:'⚙'}[name]||'•')}
 class Owner extends R.Component{
- constructor(props){super(props);this.state={phase:'loading',email:'',password:'',user:null,items:[],orders:[],customers:[],settings:null,page:'overview',editor:null,busy:false,error:'',notice:'',menu:false,query:'',chosenOrder:null,carrier:'',tracking:''};this.load=this.load.bind(this);}
+ constructor(props){super(props);this.state={phase:'loading',email:'',password:'',fullName:'',confirmPassword:'',user:null,items:[],orders:[],customers:[],settings:null,page:'overview',editor:null,busy:false,error:'',notice:'',menu:false,query:'',chosenOrder:null,carrier:'',tracking:''};this.load=this.load.bind(this);}
  componentDidMount(){if(!api?.configured){this.setState({phase:'setup'});return;}api.profile().then(u=>this.setState({user:u,phase:'ready'},this.load)).catch(()=>this.setState({phase:'login'}));}
  error(message){this.setState({error:message instanceof Error?message.message:String(message||'Unknown error')});}
  async login(e){e.preventDefault();this.setState({busy:true,error:''});try{const user=await api.login(this.state.email,this.state.password);this.setState({user,phase:'ready',password:''},this.load);}catch(e){this.error(e);}finally{this.setState({busy:false});}}
+ async register(e){
+  e.preventDefault();
+  const {email,password,fullName,confirmPassword}=this.state;
+  if(!fullName.trim()||password.length<8||password!==confirmPassword){this.error('Enter your name and matching passwords with at least eight characters.');return;}
+  this.setState({busy:true,error:''});
+  try{
+   const result=await api.registerOwner(email.trim(),password,fullName.trim());
+   this.setState({phase:'registered',password:'',confirmPassword:'',email:result.email});
+  }catch(e){this.error(e)}finally{this.setState({busy:false})}
+ }
  async load(){this.setState({busy:true,error:''});try{const [items,orders,customers,settings]=await Promise.all([api.readProducts({owner:true}),api.readOrders(),api.readCustomers(),api.readSettings()]);this.setState({items,orders,customers,settings:settings||{},busy:false});}catch(e){this.error(e);this.setState({busy:false});}}
  navigate(page){this.setState({page,editor:null,menu:false,chosenOrder:null,error:''});window.scrollTo(0,0)}
  edit(p){const editor=JSON.parse(JSON.stringify(p||Blank()));this.setState({editor,editorColors:editor.colors.join(', '),editorSizes:editor.sizes.join(', '),page:'products',error:''});window.scrollTo(0,0)}
@@ -71,7 +81,32 @@ class Owner extends R.Component{
  }
  settings(){const s=this.state.settings||{};const set=(k,v)=>this.setState({settings:{...this.state.settings,[k]:v}});const fields=[['display_name','Store display name'],['legal_business_name','Legal business name'],['support_email','Customer support email'],['privacy_email','Privacy contact email'],['postal_address','Business mailing address'],['shipping_regions','Shipping destinations'],['processing_time','Processing time (business days)'],['return_window_days','Return window in days'],['return_conditions','Return eligibility and conditions'],['return_address','Return mailing address']];return h('div',null,this.heading('Settings','BUSINESS INFORMATION'),h('section',{className:'a-panel'},h('h2',null,'Business details and customer policies'),h('p',null,'Enter only confirmed business information. These details appear in customer information pages; do not publish claims you cannot honor.'),...fields.map(([k,label])=>h('div',{key:k},Field({label,value:s[k]??'',type:k==='return_window_days'?'number':'text',onChange:v=>set(k,v)}))),Button({children:'Save settings',onClick:()=>this.saveSettings(),disabled:this.state.busy})),h('section',{className:'a-panel'},h('h2',null,'Store access'),h('p',null,'Owner account: '+this.state.user?.email),h('p',null,'Account changes and access grants must be handled through the store-owned Supabase project.')));
  }
- render(){const s=this.state;if(s.phase==='loading')return h('main',{className:'lc-auth'},h('h1',null,'LOUIS COR'),h('p',null,'Connecting securely…'));if(s.phase==='setup')return h('main',{className:'lc-auth'},h('h1',null,'LOUIS COR'),h('h2',null,'Store setup required'),h('p',null,'Connect this website to its own Supabase project using config.js and the included database migration. Your store remains private until then.'));if(s.phase==='login')return h('main',{className:'lc-auth'},h('img',{src:'assets/lc-monogram.svg',width:84,alt:'LOUIS COR'}),h('h1',null,'Owner sign in'),h('form',{onSubmit:e=>this.login(e)},Field({label:'Email',value:s.email,type:'email',onChange:v=>this.setState({email:v})}),Field({label:'Password',value:s.password,type:'password',onChange:v=>this.setState({password:v})}),h('button',{type:'submit',className:'a-btn primary',disabled:s.busy},s.busy?'Signing in…':'Sign in')),s.error&&h('p',{role:'alert',className:'lc-error'},s.error));const tabs=[['overview','Overview'],['products','Products'],['orders','Orders'],['customers','Customers'],['shipping','Shipping'],['settings','Settings']];return h('div',{className:'a-shell'},h('aside',{className:'a-sidebar'+(s.menu?' mobile-open':'')},h('div',{className:'a-sidebar-top'},h('img',{src:'assets/lc-monogram.svg',alt:'LC',width:72})),h('nav',{className:'a-nav'},tabs.map(([id,name])=>h('button',{key:id,onClick:()=>this.navigate(id),className:s.page===id?'active':''},h(Icon,{name:id}),name))),h('button',{className:'a-btn outline lc-logout',onClick:()=>this.logout()},'Sign out')),h('div',{className:'a-main-column'},h('header',{className:'a-header'},h('button',{className:'a-menu-toggle',onClick:()=>this.setState({menu:!s.menu})},'☰'),h('span',null,'LOUIS COR / OWNER'),h('div',{className:'a-header-actions'},h('a',{href:'index.html',target:'_blank',rel:'noopener'},'View store'))),h('main',{className:'a-content'},s.error&&h('div',{className:'lc-error',role:'alert'},s.error),s.notice&&h('p',{className:'lc-notice',role:'status'},s.notice),s.busy&&h('p',{className:'a-muted'},'Saving…'),s.page==='overview'?this.overview():s.page==='products'?this.products():s.page==='orders'?this.orders():s.page==='customers'?this.customers():s.page==='shipping'?this.shipping():this.settings())));
+ render(){const s=this.state;if(s.phase==='loading')return h('main',{className:'lc-auth'},h('h1',null,'LOUIS COR'),h('p',null,'Connecting securely…'));if(s.phase==='setup')return h('main',{className:'lc-auth'},h('h1',null,'LOUIS COR'),h('h2',null,'Store setup required'),h('p',null,'Connect this website to its own Supabase project using config.js and the included database migration. Your store remains private until then.'));if(s.phase==='registered')return h('main',{className:'lc-auth'},
+ h('img',{src:'assets/lc-monogram.svg',width:84,alt:'LOUIS COR'}),
+ h('h1',null,'Check your email'),
+ h('p',{className:'lc-auth-copy'},'Verify your email address to finish creating your account. Store management access is activated separately for approved owners.'),
+ h('button',{type:'button',className:'a-btn outline',onClick:()=>this.setState({phase:'login',error:''})},'Back to sign in'));
+ if(s.phase==='register')return h('main',{className:'lc-auth'},
+ h('img',{src:'assets/lc-monogram.svg',width:84,alt:'LOUIS COR'}),
+ h('h1',null,'Create your account'),
+ h('form',{onSubmit:e=>this.register(e)},
+ Field({label:'Name',value:s.fullName,onChange:v=>this.setState({fullName:v})}),
+ Field({label:'Email',value:s.email,type:'email',onChange:v=>this.setState({email:v})}),
+ Field({label:'Password',value:s.password,type:'password',onChange:v=>this.setState({password:v})}),
+ Field({label:'Confirm password',value:s.confirmPassword,type:'password',onChange:v=>this.setState({confirmPassword:v})}),
+ h('button',{type:'submit',className:'a-btn primary a-full',disabled:s.busy},s.busy?'Creating account…':'Create account')),
+ h('div',{className:'lc-owner-onboarding'},h('span',null,'Already have an account? '),h('button',{className:'lc-owner-link',type:'button',onClick:()=>this.setState({phase:'login',error:''})},'Sign in'),h('p',null,'Registration does not grant owner permissions.')),
+ s.error&&h('p',{role:'alert',className:'lc-error'},s.error));
+ if(s.phase==='login')return h('main',{className:'lc-auth'},
+ h('img',{src:'assets/lc-monogram.svg',width:84,alt:'LOUIS COR'}),
+ h('h1',null,'Owner sign in'),
+ h('form',{onSubmit:e=>this.login(e)},
+ Field({label:'Email',value:s.email,type:'email',onChange:v=>this.setState({email:v})}),
+ Field({label:'Password',value:s.password,type:'password',onChange:v=>this.setState({password:v})}),
+ h('button',{type:'submit',className:'a-btn primary a-full',disabled:s.busy},s.busy?'Signing in…':'Sign in')),
+ h('a',{className:'lc-password-link',href:'index.html#/account/recover'},'Forgot password?'),
+ h('div',{className:'lc-owner-onboarding'},h('span',null,'New to LOUIS COR? '),h('button',{type:'button',className:'lc-owner-link',onClick:()=>this.setState({phase:'register',error:''})},'Create an account'),h('p',null,'Store access requires owner approval.')),
+ s.error&&h('p',{role:'alert',className:'lc-error'},s.error));const tabs=[['overview','Overview'],['products','Products'],['orders','Orders'],['customers','Customers'],['shipping','Shipping'],['settings','Settings']];return h('div',{className:'a-shell'},h('aside',{className:'a-sidebar'+(s.menu?' mobile-open':'')},h('div',{className:'a-sidebar-top'},h('img',{src:'assets/lc-monogram.svg',alt:'LC',width:72})),h('nav',{className:'a-nav'},tabs.map(([id,name])=>h('button',{key:id,onClick:()=>this.navigate(id),className:s.page===id?'active':''},h(Icon,{name:id}),name))),h('button',{className:'a-btn outline lc-logout',onClick:()=>this.logout()},'Sign out')),h('div',{className:'a-main-column'},h('header',{className:'a-header'},h('button',{className:'a-menu-toggle',onClick:()=>this.setState({menu:!s.menu})},'☰'),h('span',null,'LOUIS COR / OWNER'),h('div',{className:'a-header-actions'},h('a',{href:'index.html',target:'_blank',rel:'noopener'},'View store'))),h('main',{className:'a-content'},s.error&&h('div',{className:'lc-error',role:'alert'},s.error),s.notice&&h('p',{className:'lc-notice',role:'status'},s.notice),s.busy&&h('p',{className:'a-muted'},'Saving…'),s.page==='overview'?this.overview():s.page==='products'?this.products():s.page==='orders'?this.orders():s.page==='customers'?this.customers():s.page==='shipping'?this.shipping():this.settings())));
  }
 }
 DOM.render(h(Owner),document.getElementById('admin-root'));

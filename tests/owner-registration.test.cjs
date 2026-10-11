@@ -1,0 +1,23 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const client = fs.readFileSync(path.join(__dirname, '..', 'live-client.js'), 'utf8');
+const requests=[];
+const window={ LC_BACKEND_CONFIG: {url:'https://example.supabase.co',publishableKey:'sb_publishable_test'} };
+const storage={};
+const localStorage={getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v,removeItem:k=>delete storage[k]};
+const ctx={window,localStorage,Date,JSON,Blob,fetch:async(url,opts)=>{requests.push({url,opts});return {ok:true,status:200,text:async()=>JSON.stringify({user:{id:'fake-auth-user-id',email:'owner@example.com'},session:null})}}};
+vm.createContext(ctx);vm.runInContext(client,ctx);
+(async()=>{
+ const result=await window.LCBackend.registerOwner('owner@example.com','StrongPass123!','Store Owner');
+ assert.equal(result.confirmationRequired,true);
+ assert.equal(requests.length,1);
+ assert.equal(requests[0].url,'https://example.supabase.co/auth/v1/signup');
+ const body=JSON.parse(requests[0].opts.body);
+ assert.equal(body.email,'owner@example.com');
+ assert.equal(body.data.full_name,'Store Owner');
+ assert.equal(window.LCBackend.currentUser(),null);
+ assert.equal(Object.keys(storage).length,0);
+ console.log('Owner registration request verified; no owner session or permissions assigned.');
+})().catch(e=>{console.error(e);process.exitCode=1});

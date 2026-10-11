@@ -96,3 +96,27 @@
   .customer-auth-messages { position: static; align-self: auto; }
   .customer-account-page h1 { font-size: 34px; }
 }
+
+
+/* The message container must never sit beside the form at phone widths. */
+.customer-auth-page { flex-direction: column; align-items: center; justify-content: flex-start; }
+.customer-auth-card { flex: 0 0 auto; min-width: 0; width: min(100%, 475px); }
+.customer-auth-messages { position: static; align-self: center; width: min(100%, 475px); max-width: 475px; margin-top: 12px; }
+@media(max-width:760px) {
+  .customer-account-page {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 48px max(20px,env(safe-area-inset-left)) 90px;
+  }
+  .customer-auth-card { width: 100%; max-width: 480px; margin-inline: auto; }
+  .customer-auth-card form, .customer-field, .customer-field input, .customer-button { width: 100%; min-width: 0; max-width: none; }
+  .customer-auth-card form { display: block; }
+  .customer-field input { min-height: 53px; padding: 14px 15px; font-size: 16px; }
+  .customer-account-page h1 { font-size: clamp(35px, 10vw, 45px); letter-spacing: -.045em; line-height: 1.1; }
+  .customer-muted { font-size: 14px; }
+  .customer-auth-footer { max-width: 100%; font-size: 13px; line-height: 1.6; }
+  .customer-button { min-height: 54px; }
+  .customer-dashboard { width: 100%; min-width: 0; }
+  .customer-dashboard-body { width: 100%; }
+}

@@ -26,6 +26,12 @@
     if(res.status===204)return null;
     const text=await res.text();return text?JSON.parse(text):null;
   }
+  async function registerOwner(email,password,fullName){
+    check();
+    const result=await request('/auth/v1/signup',{method:'POST',body:{email,password,data:{full_name:fullName}}});
+    if(!result?.user?.id)throw Error('Registration could not be completed. Please try again.');
+    return {email:result.user.email||email,confirmationRequired:!result.session};
+  }
   async function login(email,password){check();const result=await request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});saveAuth(result);return profile()}
   async function refresh(){check();if(!auth?.refresh_token)throw Error('Session expired. Please sign in.');const response=await fetch(endpoint+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});if(!response.ok){saveAuth(null);throw Error('Session expired. Please sign in again.');} const data=await response.json();saveAuth(data);return data}
   async function ensureToken(){if(!auth?.access_token)throw Error('Please sign in.');if(auth.expires_at && auth.expires_at*1000<Date.now()+60000)await refresh();}
@@ -48,5 +54,5 @@
   async function recordTracking(orderId,carrier,tracking){if(!carrier?.trim()||!tracking?.trim())throw Error('Carrier and tracking number are required.');return request('/rest/v1/rpc/lc_record_tracking',{method:'POST',body:{order_id:orderId,carrier_name:carrier.trim(),tracking_number:tracking.trim()},authRequired:true})}
   async function readSettings(){const result=await request('/rest/v1/lc_store_settings?select=*&id=eq.1');return result?.[0]||null}
   async function updateSettings(value){return request('/rest/v1/lc_store_settings?id=eq.1',{method:'PATCH',body:value,authRequired:true,headers:{Prefer:'return=representation'}})}
-  window.LCBackend={configured,currentUser,login,logout,profile,readProducts,upsertProduct,archiveProduct,uploadProductPhoto,readOrders,readCustomers,recordTracking,readSettings,updateSettings,imageUrl};
+  window.LCBackend={configured,currentUser,registerOwner,login,logout,profile,readProducts,upsertProduct,archiveProduct,uploadProductPhoto,readOrders,readCustomers,recordTracking,readSettings,updateSettings,imageUrl};
 })();

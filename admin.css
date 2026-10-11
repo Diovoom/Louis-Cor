@@ -6,3 +6,18 @@
 @media(max-width:760px){.a-sidebar.mobile-open{transform:translateX(0)}}
 
 .lc-customer-directory-row{display:grid;grid-template-columns:minmax(160px,2fr) minmax(150px,1fr) 130px;gap:24px;align-items:center;padding:24px 0;border-bottom:1px solid #ececec;font-size:13px}.lc-customer-directory-row:last-child{border-bottom:0}.lc-customer-directory-row p{margin:7px 0;color:#666;word-break:break-word}.lc-customer-directory-row small{color:#777}.lc-customer-directory-row>div:nth-child(2){display:flex;flex-direction:column;gap:7px}@media(max-width:700px){.lc-customer-directory-row{grid-template-columns:1fr;gap:8px}}
+
+.lc-owner-onboarding { width:min(100%,390px); margin-top:2px; font-size:13px; line-height:1.5; }
+.lc-owner-onboarding a { color:#111; text-decoration:underline; text-underline-offset:4px; }
+.lc-owner-onboarding p { color:#626262; margin:12px auto 0; max-width:36ch; font-size:12px; line-height:1.65; }
+@media(max-width:760px) {
+ .lc-auth { padding:28px 22px; min-height:100dvh; }
+ .lc-auth form,.lc-owner-onboarding { width:100%; max-width:390px; }
+ .lc-auth .a-field input { min-height:52px; font-size:16px; }
+}
+
+.lc-owner-link { background:none; border:0; padding:0; color:#111; font:inherit; font-weight:600; text-decoration:underline; text-underline-offset:4px; cursor:pointer; }
+.lc-owner-link:focus-visible { outline:2px solid #111; outline-offset:4px; }
+.lc-auth-copy { max-width:390px; line-height:1.7; color:#555; font-size:14px; }
+
+.lc-password-link { margin-top:-9px; margin-bottom:2px; color:#333; font-size:12px; text-decoration:underline; text-underline-offset:4px; }

@@ -286,7 +286,7 @@
       const mode = recovering ? 'reset' : this.state.mode;
       return h('main', { className: 'customer-account-page customer-auth-page' },
         mode === 'register' ? this.registerForm() : mode === 'recover' ? this.recoverForm() : mode === 'reset' ? this.resetForm() : mode === 'confirm' ? this.confirmationForm() : this.loginForm(),
-        h('div', { className: 'customer-auth-messages' }, this.notice()));
+        (this.state.error || this.state.message) ? h('div', { className: 'customer-auth-messages' }, this.notice()) : null);
     }
   }
 

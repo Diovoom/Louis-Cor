@@ -5,3 +5,52 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.hero-video{display:none}.home-hero{background:linear-gradient(90deg,#0009,#0005),url('assets/hero-poster.jpg') center/cover}}
 
 /* Brand art direction: COLOR editorial imagery, monochrome storefront controls and typography. */
+
+
+/* Mobile navigation and collection layouts */
+@media (max-width: 760px) {
+  html, body, #app { max-width: 100%; }
+  body { overflow-x: clip; }
+  .site-header {
+    width: 100%;
+    height: 68px;
+    grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
+    gap: 4px;
+    padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
+  }
+  .header-left, .header-right { min-width: 0; }
+  .header-right { gap: 2px; }
+  .site-header .brand-center { height: 68px; }
+  .site-header .lc-logo { height: 47px; width: auto; max-width: 70px; }
+  .icon-btn { min-width: 40px; min-height: 44px; padding: 10px 7px; }
+  .header-left > .icon-btn { margin-left: -6px; }
+  .header-right > .icon-btn, .header-right > span { flex: 0 0 auto; }
+  .page-heading { padding: 52px 20px 48px; }
+  .page-heading h1 { max-width: 100%; overflow-wrap: anywhere; font-size: clamp(56px, 12vw, 82px); margin: 0 auto 18px; }
+  .page-heading p { max-width: 33ch; margin: 0 auto; font-size: 14px; line-height: 1.55; }
+  .collection-toolbar { padding: 15px 18px 19px; }
+  .cat-tabs { gap: 25px; padding-bottom: 6px; }
+  .cat-tab { color: #111; font-size: 12px; min-height: 44px; }
+  .cat-tab.active { font-weight: 600; }
+  .filters-right { gap: 10px; margin-top: 12px; }
+  .sort-label select { font-size: 13px; }
+  .shop-products { padding-top: 26px; padding-bottom: 62px; }
+  .empty-state { padding: 38px 8px 64px; margin: 0; text-align: center; font-size: 14px; }
+  .products-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 22px 12px; }
+  .product-title { overflow-wrap: anywhere; }
+  .site-footer { padding-bottom: max(30px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .site-header { padding-inline: 10px; grid-template-columns: minmax(0,1fr) 58px minmax(0,1fr); }
+  .site-header .lc-logo { max-width: 58px; height: 42px; }
+  .header-right { gap: 0; }
+  .icon-btn { min-width: 36px; padding-inline: 6px; }
+  .page-heading h1 { font-size: clamp(47px, 12vw, 60px); }
+}
+
+@media (max-width: 760px) {
+  .footer-top h2 { font-size: clamp(43px, 12vw, 65px); max-width: 100%; }
+  .footer-links { min-width: 0; }
+  .footer-links a, .footer-links button { overflow-wrap: anywhere; }
+  .footer-bottom { gap: 9px 15px; }
+}
