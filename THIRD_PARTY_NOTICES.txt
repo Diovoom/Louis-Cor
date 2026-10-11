@@ -1,0 +1,4 @@
+The self-contained storefront currently bundles React 16.0.0 and ReactDOM 16.0.1 under the MIT license:
+https://github.com/facebook/react/blob/main/LICENSE
+These legacy runtimes must be replaced with a supported React version before a public launch.
+All product and campaign images included with this package are temporary illustrative assets and must be replaced with images that the business is licensed to use.
