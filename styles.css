@@ -54,3 +54,11 @@
   .footer-links a, .footer-links button { overflow-wrap: anywhere; }
   .footer-bottom { gap: 9px 15px; }
 }
+
+/* A product without an uploaded photo uses the brand monogram, not a substitute garment. */
+.product-image-wrap img[src$="lc-monogram.svg"],
+.main-product-image img[src$="lc-monogram.svg"],
+.thumbnails img[src$="lc-monogram.svg"],
+.cart-line img[src$="lc-monogram.svg"]{
+ object-fit:contain!important;background:#f3f3f3;padding:22%;filter:none!important;
+}

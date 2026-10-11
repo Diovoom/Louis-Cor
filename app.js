@@ -6,7 +6,7 @@ const R=window.React, RD=window.ReactDOM, h=R.createElement;
 if(!R.Fragment)R.Fragment=function Fragment(props){return props.children;};
 const P=window.LC_PRODUCTS, CFG=window.LC_CONFIG;
 const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);
-const img=name=>/^(data:image\/|https?:\/\/|blob:)/.test(name||'')?name:'assets/'+name;
+const img=name=>/^(data:image\/|https?:\/\/|blob:)/.test(name||'')?name:'assets/'+(name||'lc-monogram.svg');
 const get=(k,fallback)=>{try {const data=JSON.parse(localStorage.getItem(k));return data===null?fallback:data}catch(e){return fallback}};
 const put=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const route=()=>decodeURIComponent((window.location.hash||'#/').slice(1)||'/');

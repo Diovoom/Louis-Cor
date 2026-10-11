@@ -34,8 +34,11 @@ function Select({label,value,onChange,options}){return h('label',{className:'a-f
 function Button({children,onClick,disabled=false,kind='primary'}){return h('button',{type:'button',className:'a-btn '+kind,onClick,disabled},children)}
 function Icon({name}){return h('span',{'aria-hidden':'true'}, {overview:'◫',products:'▣',orders:'▤',payments:'◇',shipping:'⇢',customers:'♙',settings:'⚙'}[name]||'•')}
 class Owner extends R.Component{
- constructor(props){super(props);this.state={phase:'loading',email:'',password:'',fullName:'',confirmPassword:'',user:null,items:[],orders:[],customers:[],settings:null,page:'overview',editor:null,salesPeriod:'30',salesFrom:'',salesTo:'',sales:null,salesLoading:false,salesError:'',checkoutActive:false,busy:false,error:'',notice:'',menu:false,query:'',chosenOrder:null,carrier:'',tracking:''};this.load=this.load.bind(this);}
- componentDidMount(){if(!api?.configured){this.setState({phase:'setup'});return;}api.profile().then(u=>this.setState({user:u,phase:'ready'},this.load)).catch(()=>this.setState({phase:'login'}));}
+ constructor(props){super(props);this.state={phase:'loading',email:'',password:'',fullName:'',confirmPassword:'',user:null,items:[],orders:[],customers:[],settings:null,page:'overview',editor:null,salesPeriod:'30',salesFrom:'',salesTo:'',sales:null,salesLoading:false,salesError:'',checkoutActive:false,busy:false,error:'',notice:'',menu:false,productMenu:null,query:'',chosenOrder:null,carrier:'',tracking:''};this.load=this.load.bind(this);this.onDocumentKeyDown=this.onDocumentKeyDown.bind(this);this.onOutsideProductMenu=this.onOutsideProductMenu.bind(this);}
+ componentDidMount(){window.addEventListener('keydown',this.onDocumentKeyDown);document.addEventListener('pointerdown',this.onOutsideProductMenu);if(!api?.configured){this.setState({phase:'setup'});return;}api.profile().then(u=>this.setState({user:u,phase:'ready'},this.load)).catch(()=>this.setState({phase:'login'}));}
+ componentWillUnmount(){window.removeEventListener('keydown',this.onDocumentKeyDown);document.removeEventListener('pointerdown',this.onOutsideProductMenu);}
+ onDocumentKeyDown(e){if(e.key==='Escape'&&(this.state.menu||this.state.productMenu))this.setState({menu:false,productMenu:null});}
+ onOutsideProductMenu(e){if(this.state.productMenu && !e.target.closest('.a-row-action-menu'))this.setState({productMenu:null});}
  error(message){this.setState({error:(window.LCUserMessage || (()=>'Something went wrong. Please try again.'))(message)});}
  async login(e){e.preventDefault();this.setState({busy:true,error:''});try{const user=await api.login(this.state.email,this.state.password);this.setState({user,phase:'ready',password:''},this.load);}catch(e){this.error(e);}finally{this.setState({busy:false});}}
  async register(e){
@@ -65,13 +68,28 @@ class Owner extends R.Component{
   }
  }
  setSalesPeriod(period){this.setState({salesPeriod:period},()=>this.loadSales())}
- navigate(page){this.setState({page,editor:null,menu:false,chosenOrder:null,error:''});window.scrollTo(0,0)}
- edit(p){const editor=JSON.parse(JSON.stringify(p||Blank()));this.setState({editor,editorColors:editor.colors.join(', '),editorSizes:editor.sizes.join(', '),page:'products',error:''});window.scrollTo(0,0)}
+ navigate(page){this.setState({page,editor:null,menu:false,productMenu:null,chosenOrder:null,error:''});window.scrollTo(0,0)}
+ edit(p){const editor=JSON.parse(JSON.stringify(p||Blank()));this.setState({editor,editorColors:editor.colors.join(', '),editorSizes:editor.sizes.join(', '),page:'products',productMenu:null,error:''});window.scrollTo(0,0)}
  change(k,v){this.setState(s=>({editor:{...s.editor,[k]:v}}));}
  changeOptions(k,v){this.setState(s=>{const p={...s.editor};p[k]=csv(v);p.variants=variants(p.colors,p.sizes,p.variants);return {editor:p,[k==='colors'?'editorColors':'editorSizes']:v}})}
  changeVariant(i,key,v){this.setState(s=>({editor:{...s.editor,variants:s.editor.variants.map((x,j)=>i===j?{...x,[key]:key==='qty'?Math.max(0,Math.floor(Number(v)||0)):v}:x)}}))}
  async uploadImage(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;this.setState({busy:true,error:''});try{const result=await api.uploadProductPhoto(file);this.setState(s=>({editor:{...s.editor,image:result.url,imagePath:result.path}}));}catch(err){this.error(err)}finally{this.setState({busy:false});}}
- async saveProduct(){let p=this.state.editor;if(!p)return;const id=p.id||slug(p.name);if(!id||!p.name?.trim()||!p.colors.length||!p.sizes.length){this.error('Enter a name, sizes and colors.');return}if(!Number.isFinite(Number(p.price))||Number(p.price)<0){this.error('Enter a valid price.');return}if(!p.imagePath&&p.status==='active'){this.error('Upload a real product photo before publishing.');return}p={...p,id,variants:variants(p.colors,p.sizes,p.variants)};this.setState({busy:true,error:''});try{await api.upsertProduct(p);await this.load();this.setState({editor:null,notice:'Product saved.',page:'products'});}catch(e){this.error(e);}finally{this.setState({busy:false});}}
+ async saveProduct(nextStatus){
+  let p=this.state.editor;
+  if(!p||this.state.busy)return;
+  const status=nextStatus||p.status;
+  const id=p.id||slug(p.name);
+  if(!id||!p.name?.trim()||!p.colors.length||!p.sizes.length){this.error('Enter a name, sizes and colors.');return;}
+  if(!Number.isFinite(Number(p.price))||Number(p.price)<0){this.error('Enter a valid price.');return;}
+  p={...p,id,status,variants:variants(p.colors,p.sizes,p.variants)};
+  this.setState({busy:true,error:'',notice:''});
+  try{
+    await api.upsertProduct(p);
+    await this.load();
+    const notice=status==='active'?'Product published.':nextStatus==='draft'&&this.state.editor?.status==='active'?'Product unpublished.':'Product saved.';
+    this.setState({editor:null,notice,page:'products',productMenu:null});
+  }catch(e){this.error(e);}finally{this.setState({busy:false});}
+ }
  async archive(p){if(!confirm('Archive '+p.name+'? The product will be removed from the storefront.'))return;this.setState({busy:true,error:''});try{await api.archiveProduct(p.id);await this.load()}catch(e){this.error(e)}finally{this.setState({busy:false})}}
  async saveSettings(){this.setState({busy:true,error:''});const s=this.state.settings||{};const fields=['display_name','legal_business_name','support_email','privacy_email','postal_address','shipping_regions','processing_time','return_address','return_conditions','return_window_days'];const body={};fields.forEach(x=>body[x]=s[x]===''&&x==='return_window_days'?null:s[x]??null);try{await api.updateSettings(body);await this.load();this.setState({notice:'Store settings saved.'})}catch(e){this.error(e)}finally{this.setState({busy:false})}}
  async saveTracking(){this.setState({busy:true,error:''});try{await api.recordTracking(this.state.chosenOrder.id,this.state.carrier,this.state.tracking);await this.load();this.setState({chosenOrder:null,notice:'Shipment tracking saved.'})}catch(e){this.error(e)}finally{this.setState({busy:false})}}
@@ -110,9 +128,70 @@ class Owner extends R.Component{
     h('div',{className:'a-stat-grid'},[['Products',items.length],['Published',live.length],['Inventory units',stock],['Orders',s.orders.length]].map(x=>h('div',{key:x[0],className:'a-panel'},h('span',{className:'a-overline'},x[0]),h('h2',null,x[1])))),
     h('section',{className:'a-panel'},h('h2',null,'Store status'),h('p',null,'Manage published products, stock and pricing here.'),h('p',null,s.checkoutActive?'Card checkout is open.':'Card checkout is currently closed.'),Button({children:'Manage products',onClick:()=>this.navigate('products')})));
  }
- products(){if(this.state.editor)return this.productEditor();const items=this.state.items.filter(p=>(p.name+' '+p.category+' '+p.sku).toLowerCase().includes(this.state.query.toLowerCase()));return h('div',null,this.heading('Products','CATALOG',Button({children:'+ Add product',onClick:()=>this.edit(null)})),h('div',{className:'a-toolbar'},h('input',{type:'search',value:this.state.query,placeholder:'Search products',onChange:e=>this.setState({query:e.target.value}),style:{padding:'12px 15px',border:'1px solid #ddd',width:'100%',maxWidth:360}})),h('div',{className:'a-products-table'},h('div',{className:'a-table-head'},h('span',null,'PRODUCT'),h('span',null,'STATUS'),h('span',null,'STOCK'),h('span',null,'PRICE'),h('span',null,'ACTIONS')),items.map(p=>h('div',{className:'a-product-row',key:p.id},h('button',{className:'a-item-name',onClick:()=>this.edit(p)},h('img',{src:photo(p),alt:''}),h('span',null,h('b',null,p.name),h('small',null,p.category+' / '+p.group))),h('span',null,p.status),h('span',null,p.variants.reduce((s,v)=>s+v.qty,0)),h('strong',null,currency(p.price)),h('span',{className:'a-row-actions'},h('button',{onClick:()=>this.edit(p)},'Edit'),h('button',{onClick:()=>this.archive(p),disabled:p.status==='archived'},'Archive')))),!items.length&&h('p',{className:'a-empty'},'No products yet. Add your first piece.')));
+ products(){
+  if(this.state.editor)return this.productEditor();
+  const s=this.state;
+  const items=s.items.filter(p=>(p.name+' '+p.category+' '+p.sku).toLowerCase().includes(s.query.toLowerCase()));
+  return h('div',null,
+   this.heading('Products','CATALOG',Button({children:'+ Add product',onClick:()=>this.edit(null)})),
+   h('div',{className:'a-toolbar'},h('input',{type:'search',value:s.query,placeholder:'Search products','aria-label':'Search products',onChange:e=>this.setState({query:e.target.value,productMenu:null}),style:{padding:'12px 15px',border:'1px solid #ddd',width:'100%',maxWidth:360}})),
+   h('div',{className:'a-products-table'},
+    h('div',{className:'a-table-head'},h('span',null,'PRODUCT'),h('span',null,'STATUS'),h('span',null,'STOCK'),h('span',null,'PRICE'),h('span',null,'OPTIONS')),
+    items.map(p=>h('div',{className:'a-product-row',key:p.id},
+     h('button',{type:'button',className:'a-item-name',onClick:()=>this.edit(p)},h('img',{src:photo(p),alt:''}),h('span',null,h('b',null,p.name),h('small',null,p.category+' / '+p.group))),
+     h('span',{className:'a-product-status'},p.status==='active'?'Published':p.status==='draft'?'Draft':'Archived'),
+     h('span',{className:'a-product-stock'},p.variants.reduce((n,v)=>n+v.qty,0)),
+     h('strong',{className:'a-product-price'},currency(p.price)),
+     h('div',{className:'a-row-action-menu'},
+      h('button',{type:'button',className:'a-product-more','aria-label':'Actions for '+p.name,'aria-haspopup':'menu','aria-expanded':s.productMenu===p.id,onClick:()=>this.setState({productMenu:s.productMenu===p.id?null:p.id})},h('span',{'aria-hidden':'true'},'⋯')),
+      s.productMenu===p.id&&h('div',{className:'a-product-popover',role:'menu','aria-label':'Actions for '+p.name},
+       h('button',{type:'button',role:'menuitem',onClick:()=>this.edit(p)},'Edit product'),
+       p.status!=='archived'&&h('button',{type:'button',role:'menuitem',className:'a-destructive',disabled:s.busy,onClick:()=>{this.setState({productMenu:null});this.archive(p);}},'Archive product'))
+     ))),
+    !items.length&&h('p',{className:'a-empty'},'No products yet. Add your first piece.')));
  }
- productEditor(){const p=this.state.editor;return h('div',null,this.heading(p.id?'Edit product':'New product','MERCHANDISING',h('div',{className:'a-actions'},Button({children:'Cancel',kind:'outline',onClick:()=>this.setState({editor:null})}),Button({children:'Save product',onClick:()=>this.saveProduct(),disabled:this.state.busy}))),h('div',{className:'a-form-layout'},h('div',{className:'a-form-main'},h('section',{className:'a-panel'},h('h2',null,'Product information'),Field({label:'Name',value:p.name,onChange:v=>this.change('name',v)}),h('div',{className:'a-input-row'},Select({label:'Category',value:p.category,options:CATS,onChange:v=>this.change('category',v)}),Select({label:'Collection',value:p.group,options:GROUPS,onChange:v=>this.change('group',v)})),Field({label:'Description',value:p.description,multiline:true,onChange:v=>this.change('description',v)}),Field({label:'Materials and care',value:p.fabric,onChange:v=>this.change('fabric',v)})),h('section',{className:'a-panel'},h('h2',null,'Pricing and stock'),h('div',{className:'a-input-row'},Field({label:'Price (USD)',type:'number',min:0,step:'.01',value:p.price,onChange:v=>this.change('price',v)}),Field({label:'Compare-at price',type:'number',min:0,step:'.01',value:p.compareAt,onChange:v=>this.change('compareAt',v)})),Field({label:'SKU',value:p.sku,onChange:v=>this.change('sku',v)}),h('div',{className:'a-input-row'},Field({label:'Colors (comma-separated)',value:this.state.editorColors,onChange:v=>this.changeOptions('colors',v)}),Field({label:'Sizes (comma-separated)',value:this.state.editorSizes,onChange:v=>this.changeOptions('sizes',v)})),h('div',{className:'a-variants'},h('div',{className:'a-variants-head'},h('span',null,'VARIANT'),h('span',null,'QUANTITY'),h('span',null,'SKU')),p.variants.map((v,i)=>h('div',{className:'a-variant-row',key:v.color+'|'+v.size},h('span',null,v.color+' / '+v.size),h('input',{type:'number',min:0,value:v.qty,onChange:e=>this.changeVariant(i,'qty',e.target.value)}),h('input',{value:v.sku,onChange:e=>this.changeVariant(i,'sku',e.target.value)})))))),h('div',{className:'a-form-side'},h('section',{className:'a-panel'},h('h2',null,'Product photo'),h('div',{className:'a-photo-preview'},p.image?h('img',{src:photo(p),alt:p.alt||p.name}):h('span',null,'Add product photo')),h('label',{className:'a-upload-label'},'Upload full-resolution photo',h('input',{type:'file',accept:'image/png,image/jpeg,image/webp',onChange:e=>this.uploadImage(e)})),Field({label:'Image description',value:p.alt,onChange:v=>this.change('alt',v)})),h('section',{className:'a-panel'},h('h2',null,'Publication'),Select({label:'Status',value:p.status,options:['draft','active','archived'],onChange:v=>this.change('status',v)}),h('label',{className:'a-checkbox'},h('input',{type:'checkbox',checked:p.featured,onChange:e=>this.change('featured',e.target.checked)}),'Featured product'),Field({label:'Collection label (optional)',value:p.tag,onChange:v=>this.change('tag',v)}),Button({children:'Save product',onClick:()=>this.saveProduct(),disabled:this.state.busy})))));
+ productEditor(){const p=this.state.editor;const busy=this.state.busy;
+ const editorActions=h('div',{className:'a-actions a-editor-actions'},
+  Button({children:'Back',kind:'outline',onClick:()=>this.setState({editor:null,error:''})}),
+  Button({children:p.status==='active'?'Save changes':'Save draft',kind:'outline',onClick:()=>this.saveProduct(p.status==='active'?'active':'draft'),disabled:busy}),
+  p.status!=='active'?h('button',{type:'button',className:'a-btn primary a-publish-btn',disabled:busy,onClick:()=>this.saveProduct('active')},h('span',{'aria-hidden':'true'},'↗'),'Publish'):
+    Button({children:'Unpublish',kind:'outline',onClick:()=>this.saveProduct('draft'),disabled:busy}));
+ return h('div',null,
+  this.heading(p.id?'Edit product':'New product','MERCHANDISING',editorActions),
+  h('div',{className:'a-form-layout'},
+   h('div',{className:'a-form-main'},
+    h('section',{className:'a-panel'},h('h2',null,'Product information'),
+     Field({label:'Name',value:p.name,onChange:v=>this.change('name',v)}),
+     h('div',{className:'a-input-row'},
+      Select({label:'Category',value:p.category,options:CATS,onChange:v=>this.change('category',v)}),
+      Select({label:'Collection',value:p.group,options:GROUPS,onChange:v=>this.change('group',v)})),
+     Field({label:'Description',value:p.description,multiline:true,onChange:v=>this.change('description',v)}),
+     Field({label:'Materials and care',value:p.fabric,onChange:v=>this.change('fabric',v)})),
+    h('section',{className:'a-panel'},h('h2',null,'Pricing and stock'),
+     h('div',{className:'a-input-row'},
+      Field({label:'Price (USD)',type:'number',min:0,step:'.01',value:p.price,onChange:v=>this.change('price',v)}),
+      Field({label:'Compare-at price',type:'number',min:0,step:'.01',value:p.compareAt,onChange:v=>this.change('compareAt',v)})),
+     Field({label:'SKU',value:p.sku,onChange:v=>this.change('sku',v)}),
+     h('div',{className:'a-input-row'},
+      Field({label:'Colors (comma-separated)',value:this.state.editorColors,onChange:v=>this.changeOptions('colors',v)}),
+      Field({label:'Sizes (comma-separated)',value:this.state.editorSizes,onChange:v=>this.changeOptions('sizes',v)})),
+     h('div',{className:'a-variants'},
+      h('div',{className:'a-variants-head'},h('span',null,'VARIANT'),h('span',null,'QUANTITY'),h('span',null,'SKU')),
+      p.variants.map((v,i)=>h('div',{className:'a-variant-row',key:v.color+'|'+v.size},
+       h('span',null,v.color+' / '+v.size),
+       h('input',{type:'number',min:0,value:v.qty,'aria-label':'Quantity '+v.color+' '+v.size,onChange:e=>this.changeVariant(i,'qty',e.target.value)}),
+       h('input',{value:v.sku,'aria-label':'SKU '+v.color+' '+v.size,onChange:e=>this.changeVariant(i,'sku',e.target.value)})))))),
+   h('div',{className:'a-form-side'},
+    h('section',{className:'a-panel'},h('h2',null,'Product photo'),
+     h('div',{className:'a-photo-preview'},p.image?h('img',{src:photo(p),alt:p.alt||p.name}):h('span',null,'Add product photo')),
+     h('label',{className:'a-upload-label'},'Upload full-resolution photo',
+      h('input',{type:'file',accept:'image/png,image/jpeg,image/webp',onChange:e=>this.uploadImage(e)})),
+     Field({label:'Image description',value:p.alt,onChange:v=>this.change('alt',v)})),
+    h('section',{className:'a-panel'},h('h2',null,'Publication'),
+     h('p',{className:'a-editor-status'},'Status: ',h('strong',null,p.status==='active'?'Published':p.status==='archived'?'Archived':'Draft')),
+     h('label',{className:'a-checkbox'},
+      h('input',{type:'checkbox',checked:p.featured,onChange:e=>this.change('featured',e.target.checked)}),'Featured product'),
+     Field({label:'Collection label (optional)',value:p.tag,onChange:v=>this.change('tag',v)})))));
  }
  orders(){const s=this.state;const content=!s.orders.length
  ?h('section',{className:'a-panel'},h('p',null,'No orders received yet. New orders will appear here after live checkout is connected.'))
@@ -184,7 +263,9 @@ class Owner extends R.Component{
  h('button',{type:'submit',className:'a-btn primary a-full',disabled:s.busy},s.busy?'Signing in…':'Sign in')),
  h('a',{className:'lc-password-link',href:'index.html#/account/recover'},'Forgot password?'),
  h('div',{className:'lc-owner-onboarding'},h('span',null,'New to LOUIS COR? '),h('button',{type:'button',className:'lc-owner-link',onClick:()=>this.setState({phase:'register',error:''})},'Create an account'),h('p',null,'')),
- s.error&&h('p',{role:'alert',className:'lc-error'},s.error));const tabs=[['overview','Overview'],['products','Products'],['orders','Orders'],['payments','Payments'],['customers','Customers'],['shipping','Shipping'],['settings','Settings']];return h('div',{className:'a-shell'},h('aside',{className:'a-sidebar'+(s.menu?' mobile-open':'')},h('div',{className:'a-sidebar-top'},h('img',{src:'assets/lc-monogram.svg',alt:'LC',width:72})),h('nav',{className:'a-nav'},tabs.map(([id,name])=>h('button',{key:id,onClick:()=>this.navigate(id),className:s.page===id?'active':''},h(Icon,{name:id}),name))),h('button',{className:'a-btn outline lc-logout',onClick:()=>this.logout()},'Sign out')),h('div',{className:'a-main-column'},h('header',{className:'a-header'},h('button',{className:'a-menu-toggle',onClick:()=>this.setState({menu:!s.menu})},'☰'),h('span',null,'LOUIS COR / OWNER'),h('div',{className:'a-header-actions'},h('a',{href:'index.html',target:'_blank',rel:'noopener'},'View store'))),h('main',{className:'a-content'},s.error&&h('div',{className:'lc-error',role:'alert'},s.error),s.notice&&h('p',{className:'lc-notice',role:'status'},s.notice),s.busy&&h('p',{className:'a-muted'},'Saving…'),s.page==='overview'?this.overview():s.page==='products'?this.products():s.page==='orders'?this.orders():s.page==='payments'?this.payments():s.page==='customers'?this.customers():s.page==='shipping'?this.shipping():this.settings())));
+ s.error&&h('p',{role:'alert',className:'lc-error'},s.error));const tabs=[['overview','Overview'],['products','Products'],['orders','Orders'],['payments','Payments'],['customers','Customers'],['shipping','Shipping'],['settings','Settings']];return h('div',{className:'a-shell'},h('aside',{className:'a-sidebar'+(s.menu?' mobile-open':''),id:'lc-owner-nav'},h('div',{className:'a-sidebar-top'},h('img',{src:'assets/lc-monogram.svg',alt:'LC',width:72}),h('button',{type:'button',className:'a-sidebar-close',onClick:()=>this.setState({menu:false}),'aria-label':'Close menu'},'✕')),h('nav',{className:'a-nav'},tabs.map(([id,name])=>h('button',{key:id,onClick:()=>this.navigate(id),className:s.page===id?'active':''},h(Icon,{name:id}),name))),h('button',{className:'a-btn outline lc-logout',onClick:()=>this.logout()},'Sign out')),
+ s.menu&&h('button',{type:'button',className:'a-backdrop','aria-label':'Close menu',onClick:()=>this.setState({menu:false})}),
+ h('div',{className:'a-main-column'},h('header',{className:'a-header'},h('button',{type:'button',className:'a-menu-toggle','aria-label':s.menu?'Close menu':'Open menu','aria-expanded':s.menu,'aria-controls':'lc-owner-nav',onClick:()=>this.setState({menu:!s.menu})},s.menu?'✕':'☰'),h('span',null,'LOUIS COR / OWNER'),h('div',{className:'a-header-actions'},h('a',{href:'index.html',target:'_blank',rel:'noopener'},'View store'))),h('main',{className:'a-content'},s.error&&h('div',{className:'lc-error',role:'alert'},s.error),s.notice&&h('p',{className:'lc-notice',role:'status'},s.notice),s.busy&&h('p',{className:'a-muted'},'Saving…'),s.page==='overview'?this.overview():s.page==='products'?this.products():s.page==='orders'?this.orders():s.page==='payments'?this.payments():s.page==='customers'?this.customers():s.page==='shipping'?this.shipping():this.settings())));
  }
 }
 DOM.render(h(Owner),document.getElementById('admin-root'));
