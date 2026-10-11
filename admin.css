@@ -21,3 +21,32 @@
 .lc-auth-copy { max-width:390px; line-height:1.7; color:#555; font-size:14px; }
 
 .lc-password-link { margin-top:-9px; margin-bottom:2px; color:#333; font-size:12px; text-decoration:underline; text-underline-offset:4px; }
+
+.lc-auth form, .lc-auth .lc-owner-onboarding { box-sizing: border-box; max-width: 390px; width: 100%; }
+.lc-auth .lc-error { box-sizing: border-box; max-width: 390px; width: 100%; font-size: 13px; line-height: 1.5; text-align: left; }
+.lc-auth .lc-owner-onboarding p:empty { display: none; }
+@media(max-width:760px) {
+  .lc-auth { box-sizing: border-box; width: 100%; min-width: 0; padding: 45px 23px; }
+  .lc-auth form, .lc-auth .lc-owner-onboarding { max-width: 100%; }
+  .lc-auth h1 { font-size: clamp(32px, 9vw, 40px); }
+}
+
+/* Order totals are read from Supabase, never calculated from a paginated list. */
+.lc-sales-panel{margin-bottom:18px}
+.lc-sales-head{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.lc-sales-head h2{font-size:19px;margin:0 0 5px}
+.lc-sales-head p{color:#666;font-size:12px;margin:0}
+.lc-sales-period{display:grid;gap:7px;min-width:160px;font-size:12px;color:#555}
+.lc-sales-period select,.lc-sales-custom input{min-height:44px;width:100%;border:1px solid #d8d8d8;padding:10px 12px;background:#fff;color:#161616;border-radius:0;font-size:14px}
+.lc-sales-custom{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.lc-sales-custom label{display:grid;gap:6px;flex:1 1 160px;font-size:12px}
+.lc-sales-figures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.lc-sales-figures>div{border:1px solid #e8e8e8;padding:21px 18px;min-width:0}
+.lc-sales-figures span{font-size:11px;color:#666;display:block}
+.lc-sales-figures strong{display:block;font-family:Georgia,serif;font-weight:400;font-size:clamp(23px,3vw,37px);margin-top:10px;overflow-wrap:anywhere}
+.lc-sales-note{font-size:12px;line-height:1.7;color:#666;margin:14px 0 0}
+.lc-sales-unavailable{padding:18px 0;color:#555;font-size:14px}
+@media(max-width:660px){.lc-sales-head{flex-direction:column;align-items:stretch}.lc-sales-period{width:100%}.lc-sales-figures{grid-template-columns:1fr 1fr}.lc-sales-figures>div:first-child{grid-column:1/-1}.lc-sales-figures>div{padding:16px}.lc-sales-figures strong{font-size:29px}}
+
+.lc-customer-team-action{display:flex;flex-direction:column;gap:11px;align-items:flex-start}
+.lc-customer-team-action button{background:transparent;border:0;border-bottom:1px solid #222;padding:2px 0;font-size:12px;color:#333}

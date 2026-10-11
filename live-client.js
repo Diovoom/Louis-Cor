@@ -6,6 +6,22 @@
   const endpoint=String(cfg.url||'').replace(/\/$/,'');
   const key=String(cfg.publishableKey||'');
   const configured=Boolean(/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(endpoint)&&key);
+  // Keep provider errors internal. Show account holders only clear, actionable messages.
+  function userMessage(error) {
+    const message=String(error && error.message || error || '').toLowerCase();
+    if (/invalid login credentials|invalid credentials|invalid email or password/.test(message)) return 'The email or password is incorrect.';
+    if (/email not confirmed|email not verified/.test(message)) return 'Check your inbox and verify your email before signing in.';
+    if (/user already registered|already been registered|already exists/.test(message)) return 'An account with this email already exists. Please sign in.';
+    if (/password.*(short|weak|characters)|weak password/.test(message)) return 'Please choose a stronger password with at least eight characters.';
+    if (/too many requests|rate limit|over_email_send_rate_limit|429/.test(message)) return 'Too many attempts. Please wait a little before trying again.';
+    if (/email.*(invalid|format)|invalid email/.test(message)) return 'Enter a valid email address.';
+    if (/permission|not authorized|not allowed|insufficient privilege/.test(message)) return 'This account does not have access to that feature.';
+    if (/session expired|please sign in/.test(message)) return 'Your session has expired. Please sign in again.';
+    if (/could not reach|failed to fetch|networkerror|network request|fetch failed|internet connection/.test(message)) return 'Connection interrupted. Check your internet and try again.';
+    if (/please select jpg|maximum file size|carrier and tracking|enter a valid price|name, sizes and colors|upload a real product photo|matching passwords|enter your name/.test(message)) return String(error.message || error);
+    return 'Something went wrong. Please try again.';
+  }
+  window.LCUserMessage=userMessage;
   const storageKey='lc-owner-auth-session-v1';
   let auth=null;
   try{auth=JSON.parse(localStorage.getItem(storageKey)||'null')}catch(_){}
@@ -28,7 +44,7 @@
   }
   async function registerOwner(email,password,fullName){
     check();
-    const result=await request('/auth/v1/signup',{method:'POST',body:{email,password,data:{full_name:fullName}}});
+    const result=await request('/auth/v1/signup',{method:'POST',body:{email:email.trim().toLowerCase(),password,data:{full_name:fullName.trim(),account_type:'owner'}}});
     if(!result?.user?.id)throw Error('Registration could not be completed. Please try again.');
     return {email:result.user.email||email,confirmationRequired:!result.session};
   }
@@ -49,10 +65,24 @@
   async function upsertProduct(p){await ensureToken();const payload={id:p.id,name:p.name,category:p.category,audience:p.group,price_cents:Math.round(Number(p.price)*100),compare_at_cents:p.compareAt?Math.round(Number(p.compareAt)*100):null,description:p.description||'',materials:p.fabric||'',sku:p.sku||'',image_path:p.imagePath||null,image_alt:p.alt||p.name,label:p.tag||'',featured:!!p.featured,status:p.status,variants:(p.variants||[]).map(v=>({color:v.color,size:v.size,stock_qty:Number(v.qty),sku:v.sku||''}))};return request('/rest/v1/rpc/lc_upsert_product',{method:'POST',body:{payload},authRequired:true});}
   async function archiveProduct(id){return request('/rest/v1/lc_products?id=eq.'+encode(id),{method:'PATCH',body:{status:'archived'},authRequired:true,headers:{Prefer:'return=minimal'}})}
   async function uploadProductPhoto(file){await ensureToken();if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('Please select JPG, PNG, or WebP.');if(file.size>10*1024*1024)throw Error('Maximum file size is 10 MB.');const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];const path=auth.user.id+'/'+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)) + '.'+ext;await request('/storage/v1/object/lc-product-images/'+path,{method:'POST',body:file,authRequired:true,headers:{'Content-Type':file.type,'cache-control':'3600'}});return {path,url:imageUrl(path)};}
+  async function readCheckoutStatus(){
+    check();
+    try{
+      const response=await fetch(endpoint+'/functions/v1/checkout-status', {headers:{apikey:key},cache:'no-store'});
+      if(!response.ok)return false;
+      return (await response.json())?.available===true;
+    }catch(_){return false;}
+  }
+  async function readSalesSummary(start,end){
+    if(!/^\d{4}-\d\d-\d\dT/.test(start)||!/^\d{4}-\d\d-\d\dT/.test(end))throw Error('Select a valid date range.');
+    const rows=await request('/rest/v1/rpc/lc_sales_summary',{method:'POST',body:{start_utc:start,end_utc:end},authRequired:true});
+    return Array.isArray(rows)?rows[0]:rows;
+  }
+  async function markInternalAccount(userId){return request('/rest/v1/rpc/lc_mark_internal_account',{method:'POST',body:{target_user_id:userId},authRequired:true});}
   async function readCustomers(){return request('/rest/v1/rpc/lc_list_customers',{method:'POST',body:{},authRequired:true});}
   async function readOrders(){const [orders,lines,shipments]=await Promise.all([request('/rest/v1/lc_orders?select=*&order=created_at.desc&limit=200',{authRequired:true}),request('/rest/v1/lc_order_lines?select=*',{authRequired:true}),request('/rest/v1/lc_shipments?select=*',{authRequired:true})]);return (orders||[]).map(o=>({...o,lines:(lines||[]).filter(x=>x.order_id===o.id),shipments:(shipments||[]).filter(x=>x.order_id===o.id)}))}
   async function recordTracking(orderId,carrier,tracking){if(!carrier?.trim()||!tracking?.trim())throw Error('Carrier and tracking number are required.');return request('/rest/v1/rpc/lc_record_tracking',{method:'POST',body:{order_id:orderId,carrier_name:carrier.trim(),tracking_number:tracking.trim()},authRequired:true})}
   async function readSettings(){const result=await request('/rest/v1/lc_store_settings?select=*&id=eq.1');return result?.[0]||null}
   async function updateSettings(value){return request('/rest/v1/lc_store_settings?id=eq.1',{method:'PATCH',body:value,authRequired:true,headers:{Prefer:'return=representation'}})}
-  window.LCBackend={configured,currentUser,registerOwner,login,logout,profile,readProducts,upsertProduct,archiveProduct,uploadProductPhoto,readOrders,readCustomers,recordTracking,readSettings,updateSettings,imageUrl};
+  window.LCBackend={configured,currentUser,registerOwner,login,logout,profile,readProducts,upsertProduct,archiveProduct,uploadProductPhoto,readOrders,readCustomers,readSalesSummary,readCheckoutStatus,markInternalAccount,recordTracking,readSettings,updateSettings,imageUrl};
 })();

@@ -77,7 +77,7 @@
   async function signUp({ email, password, fullName }) {
     const result = await http('/auth/v1/signup', {
       method: 'POST',
-      body: { email: email.trim().toLowerCase(), password, data: { full_name: fullName.trim() } }
+      body: { email: email.trim().toLowerCase(), password, data: { full_name: fullName.trim(), account_type: 'customer' } }
     });
     if (result?.access_token) setSession(result);
     return { verified: Boolean(result?.access_token), email: email.trim().toLowerCase() };
@@ -205,8 +205,10 @@
     }
   });
 
+  async function accessToken() { await ensureSession(); return session.access_token; }
+
   window.LCCustomer = Object.freeze({
-    user, restore, signUp, signIn, signOut, requestPasswordReset, verifyEmailCode,
+    user, restore, signUp, signIn, signOut, accessToken, requestPasswordReset, verifyEmailCode,
     updatePassword, changeEmail, loadProfile, saveProfile, loadAddresses, saveAddress,
     deleteAddress, loadWishlist, addWishlist, removeWishlist, loadCart, setCartLine, loadOrders
   });

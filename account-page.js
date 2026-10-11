@@ -20,7 +20,7 @@
     constructor(props) {
       super(props);
       this.state = {
-        mode: this.modeFromPath(props.path), tab: 'profile', busy: false, loading: true, error: '', message: '',
+        mode: this.modeFromPath(props.path), tab: props.path.endsWith('/orders') ? 'orders' : 'profile', busy: false, loading: true, error: '', message: '',
         email: '', password: '', newPassword: '', passwordConfirm: '', fullName: '', verifyCode: '', termsAccepted: false,
         user: auth.user(), profile: null, addresses: [], orders: [], wishlist: [],
         addressForm: null, emailChange: '', phone: '', marketing_opt_in: false
@@ -40,7 +40,7 @@
     componentWillUnmount() { window.removeEventListener('lc-customer-auth-changed', this.sync); }
     componentDidUpdate(prevProps) {
       if (prevProps.path !== this.props.path) {
-        this.setState({ mode: this.modeFromPath(this.props.path), error: '', message: '' });
+        this.setState({ mode: this.modeFromPath(this.props.path), tab: this.props.path.endsWith('/orders') ? 'orders' : this.state.tab, error: '', message: '' });
       }
     }
     async loadAccount() {
@@ -53,7 +53,7 @@
         this.setState({ user: auth.user(), profile, addresses, orders, wishlist, loading: false,
           fullName: profile.full_name || '', phone: profile.phone || '', marketing_opt_in: profile.marketing_opt_in || false });
       } catch (error) {
-        this.setState({ user: auth.user(), loading: false, error: error.message });
+        this.setState({ user: auth.user(), loading: false, error: (window.LCUserMessage ? window.LCUserMessage(error) : 'Something went wrong. Please try again.') });
       }
     }
     async run(task, success) {
@@ -62,7 +62,7 @@
         await task();
         if (success) this.setState({ message: success });
       } catch (error) {
-        this.setState({ error: error.message || 'Something went wrong. Please try again.' });
+        this.setState({ error: (window.LCUserMessage ? window.LCUserMessage(error) : 'Something went wrong. Please try again.') });
       } finally { this.setState({ busy: false }); }
     }
     go(path) { this.props.navigate(path); }

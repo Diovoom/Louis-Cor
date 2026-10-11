@@ -39,10 +39,10 @@ function ProductCard({item,openProduct,toggleWish,wishlist,index=0}){return h('a
  h('div',{className:'product-lower'},h('span',null,item.category),h('span',{className:'swatches'},item.colors.slice(0,3).map(c=>h('i',{title:c,'aria-label':c,key:c,className:'swatch swatch-'+c.toLowerCase().replace(/\s/g,'-')})))),
  h('button',{className:'quick-shop',type:'button',onClick:()=>openProduct(item.id)},'EXPLORE ',h(Icon,{name:'arrow',size:15}))
 )}
-function ConsentBanner({onAccept,onReject,onSettings}){return h('div',{className:'cookie-banner',role:'dialog','aria-label':'Cookie choices'},h('div',{className:'cookie-copy'},h('strong',null,'YOUR PRIVACY, YOUR CHOICE'),h('p',null,'We use essential browser storage for your bag and saved pieces. No advertising or analytics trackers are active. ',h(A,{to:'/legal/cookies'},'Cookie policy'))),h('div',{className:'cookie-actions'},h('button',{onClick:onSettings,className:'line-button'},'DETAILS'),h('button',{onClick:onAccept,className:'solid-button'},'GOT IT')))}
+function ConsentBanner({onClose,onSettings}){return h('div',{className:'cookie-banner',role:'region','aria-label':'Browser storage notice'},h('div',{className:'cookie-copy'},h('strong',null,'YOUR PRIVACY'),h('p',null,'We use necessary browser storage for sign-in, your bag, and saved items. No advertising or analytics trackers are installed. ',h(A,{to:'/legal/cookies'},'Read our storage policy.'))),h('div',{className:'cookie-actions'},h('button',{type:'button',onClick:onSettings,className:'line-button'},'STORAGE DETAILS'),h('button',{type:'button',onClick:onClose,className:'solid-button'},'CONTINUE')))}
 
 class App extends R.Component{
- constructor(props){super(props);this.state={path:route(),cart:get('lc-cart-v1',[]),wishlist:get('lc-wishlist-v1',[]),consent:get('lc-cookie-consent-v1',null),cookiePrefs:{analytics:false,marketing:false},cookieSettings:false,mobileMenu:false,searchOpen:false,search:'',cartOpen:false,selectedSize:'',selectedColor:'',gallery:0,category:'All',sort:'featured',query:'',group:'All',filterOpen:false,accountOpen:false,toast:'',videoMuted:true,customerUser:null};this.onHash=()=>this.setState({path:route(),mobileMenu:false,searchOpen:false,cartOpen:false,selectedSize:'',selectedColor:'',gallery:0,filterOpen:false,category:'All',group:'All'},()=>{window.scrollTo({top:0,behavior:'instant'});this.updateTitle()});this.onEscape=e=>{if(e.key==='Escape')this.setState({cartOpen:false,searchOpen:false,mobileMenu:false,cookieSettings:false,accountOpen:false})};}
+ constructor(props){super(props);this.state={path:route(),cart:get('lc-cart-v1',[]),wishlist:get('lc-wishlist-v1',[]),consent:get('lc-cookie-consent-v1',null),cookieSettings:false,mobileMenu:false,searchOpen:false,search:'',cartOpen:false,selectedSize:'',selectedColor:'',gallery:0,category:'All',sort:'featured',query:'',group:'All',filterOpen:false,accountOpen:false,toast:'',videoMuted:true,customerUser:null,checkoutReady:false,checkoutBusy:false};this.onHash=()=>this.setState({path:route(),mobileMenu:false,searchOpen:false,cartOpen:false,selectedSize:'',selectedColor:'',gallery:0,filterOpen:false,category:'All',group:'All'},()=>{window.scrollTo({top:0,behavior:'instant'});this.updateTitle()});this.onEscape=e=>{if(e.key==='Escape')this.setState({cartOpen:false,searchOpen:false,mobileMenu:false,cookieSettings:false,accountOpen:false})};}
  componentDidMount(){
   window.addEventListener('hashchange',this.onHash);
   window.addEventListener('keydown',this.onEscape);
@@ -50,6 +50,7 @@ class App extends R.Component{
   this.onCustomerAuth=()=>this.syncCustomer();
   window.addEventListener('lc-customer-auth-changed',this.onCustomerAuth);
   window.LCCustomer.restore().then(()=>this.syncCustomer()).catch(()=>{});
+  window.LCCheckout.status().then(ready=>this.setState({checkoutReady:ready})).catch(()=>{});
   this.updateTitle();this.onCatalog=()=>{const valid=window.LC_LOAD_STATUS==='ready'?this.state.cart.filter(c=>P.some(p=>p.id===c.id&&window.LCStore.available(p,c.color,c.size)>0)):this.state.cart;if(valid.length!==this.state.cart.length)put('lc-cart-v1',valid);this.setState({cart:valid,catalogVersion:(this.state.catalogVersion||0)+1},()=>{this.updateTitle();if(!this.state.customerUser&&window.LCCustomer.user())this.syncCustomer();});};window.addEventListener('lc-store-updated',this.onCatalog);}
  componentWillUnmount(){window.removeEventListener('hashchange',this.onHash);window.removeEventListener('keydown',this.onEscape);window.removeEventListener('lc-store-updated',this.onCatalog);window.removeEventListener('lc-customer-auth-changed',this.onCustomerAuth)}
  updateTitle(){const path=this.state.path;document.title=(path==='/'?'Home':path.includes('/product/')?(P.find(x=>path.endsWith(x.id))||{}).name||'Collection':path.includes('legal')?'Customer Information':path.replace('/','').replace(/\b\w/g,c=>c.toUpperCase()))+' | LOUIS COR'}
@@ -84,7 +85,7 @@ class App extends R.Component{
      await Promise.all([...guestWishlist.filter(id=>!remoteWishlist.includes(id)).map(id=>window.LCCustomer.addWishlist(id)),...newItems.map(c=>window.LCCustomer.setCartLine(c))]);
      const cart=[...cartMap.values()].filter(c=>valid(c.id));
      this.setState({wishlist:mergedWishlist,cart});put('lc-wishlist-v1',mergedWishlist);put('lc-cart-v1',cart);
-   }catch(error){this.announce('Account sync failed. '+error.message);}
+   }catch(error){this.announce('We could not sync your account. Please try again.');}
  }
  async toggleWish(id){
    const before=this.state.wishlist;
@@ -93,20 +94,37 @@ class App extends R.Component{
    this.setState({wishlist});put('lc-wishlist-v1',wishlist);
    if(window.LCCustomer.user()){
      try{await (adding?window.LCCustomer.addWishlist(id):window.LCCustomer.removeWishlist(id));}
-     catch(error){this.setState({wishlist:before});put('lc-wishlist-v1',before);this.announce(error.message);return;}
+     catch(error){this.setState({wishlist:before});put('lc-wishlist-v1',before);this.announce((window.LCUserMessage ? window.LCUserMessage(error) : 'Please try again.'));return;}
    }
    this.announce(adding?'Added to saved pieces':'Removed from saved pieces');
  }
  syncCartLine(line){
    if(!window.LCCustomer.user())return;
    this.cartSyncQueue=this.cartSyncQueue.catch(()=>{}).then(()=>window.LCCustomer.setCartLine(line));
-   this.cartSyncQueue.catch(error=>this.announce('Could not save bag: '+error.message));
+   this.cartSyncQueue.catch(error=>this.announce('Your bag could not be saved. Please try again.'));
  }
 
  addToCart(item){if(!this.state.selectedSize){this.announce('Choose a size first');return}const color=this.state.selectedColor||item.colors[0];const key=item.id+'_'+this.state.selectedSize+'_'+color;const inBag=this.state.cart.filter(x=>x.key===key).reduce((n,x)=>n+x.qty,0);if(inBag>=99 || (window.LCStore && window.LCStore.available(item,color,this.state.selectedSize)<=inBag)){this.announce('This size and color is out of stock');return}let found=false;const cart=this.state.cart.map(x=>{if(x.key===key){found=true;return Object.assign({},x,{qty:x.qty+1})}return x});if(!found)cart.push({key,id:item.id,size:this.state.selectedSize,color,qty:1});this.setState({cart,cartOpen:true});put('lc-cart-v1',cart);this.syncCartLine(cart.find(x=>x.key===key))}
  changeQty(key,diff){const existing=this.state.cart.find(x=>x.key===key);const product=existing&&P.find(x=>x.id===existing.id);if(diff>0 && product && (existing.qty>=99 || (window.LCStore && window.LCStore.available(product,existing.color,existing.size)<=existing.qty))){this.announce('No more stock available in this size and color');return}let cart=this.state.cart.map(x=>x.key===key?Object.assign({},x,{qty:x.qty+diff}):x).filter(x=>x.qty>0);this.setState({cart});put('lc-cart-v1',cart);this.syncCartLine(cart.find(x=>x.key===key)||{...existing,qty:0})}
  consent(){const choices={necessary:true,acknowledgedAt:new Date().toISOString()};put('lc-cookie-consent-v1',choices);this.setState({consent:choices,cookieSettings:false})}
- onCheckout(){this.announce('Online checkout is not available yet. No order has been placed.')}
+ clearLocalItems(){try{localStorage.removeItem('lc-cart-v1');localStorage.removeItem('lc-wishlist-v1');}catch(_){ }this.setState({cart:[],wishlist:[],cookieSettings:false});this.announce('Saved items on this device cleared.');}
+ async onCheckout(){
+  if(!this.state.checkoutReady||this.state.checkoutBusy||!this.state.cart.length)return;
+  if(!window.LCCustomer.user()){
+    this.setState({cartOpen:false});
+    this.nav('/account/login');
+    this.announce('Sign in to continue to checkout.');
+    return;
+  }
+  this.setState({checkoutBusy:true});
+  try{
+    const url=await window.LCCheckout.start(this.state.cart);
+    window.location.assign(url);
+  }catch(error){
+    this.announce(window.LCCheckout.message(error));
+    this.setState({checkoutBusy:false});
+  }
+ }
  product(id){this.nav('/product/'+id)}
  header(){const count=this.state.cart.reduce((s,c)=>s+c.qty,0);return h(R.Fragment,null,
  h('header',{className:'site-header'},
@@ -173,9 +191,9 @@ class App extends R.Component{
   const empty=h('div',{className:'cart-empty'},h(Icon,{name:'bag',size:32}),h('h3',null,'YOUR BAG IS EMPTY'),h('p',null,'Find your next favorite piece.'),h('button',{className:'solid-button',onClick:()=>{this.setState({cartOpen:false});this.nav('/shop')}},'EXPLORE THE COLLECTION'));
   const summary=h('div',{className:'cart-summary'},
    h('div',{className:'subtotal'},h('span',null,'SUBTOTAL'),h('strong',null,money(total))),
-   h('p',null,'Online ordering is not yet available.'),
-   h('button',{className:'solid-button checkout-button',disabled:true,'aria-label':'Online checkout is not available yet'},'CHECKOUT UNAVAILABLE ',h(Icon,{name:'arrow',size:18})),
-   h('small',null,'ONLINE CHECKOUT IS NOT YET AVAILABLE'));
+   h('p',null,this.state.checkoutReady?'Shipping and applicable taxes are confirmed before you pay.':'Online checkout is not available yet.'),
+   h('button',{className:'solid-button checkout-button',type:'button',disabled:!this.state.checkoutReady||this.state.checkoutBusy,onClick:()=>this.onCheckout(),'aria-label':this.state.checkoutReady?'Proceed to secure checkout':'Online checkout is not available yet'},this.state.checkoutReady?(this.state.checkoutBusy?'PLEASE WAIT':'SECURE CHECKOUT'):'CHECKOUT UNAVAILABLE ',h(Icon,{name:'arrow',size:18})),
+   h('small',null,this.state.checkoutReady?'PAYMENT HANDLED SECURELY BY STRIPE':'ONLINE CHECKOUT IS NOT YET AVAILABLE'));
   return h(R.Fragment,null,
    this.state.cartOpen?h('div',{className:'backdrop visible',onClick:()=>this.setState({cartOpen:false})}):null,
    h('aside',{className:'cart-drawer '+(this.state.cartOpen?'open':''),role:'dialog','aria-label':'Shopping bag','aria-modal':this.state.cartOpen?'true':'false'},
@@ -185,9 +203,9 @@ class App extends R.Component{
  searchOverlay(){if(!this.state.searchOpen)return null;let q=this.state.search.trim().toLowerCase();let results=q?P.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q)):P.slice(0,4);return h('div',{className:'search-overlay',role:'dialog','aria-modal':'true','aria-label':'Search collection'},h('div',{className:'search-inner'},h('div',{className:'search-head'},h('span',{className:'eyebrow'},'SEARCH LOUIS COR'),h(BtnIcon,{icon:'close',label:'Close search',onClick:()=>this.setState({searchOpen:false})})),h('label',{className:'search-input-row'},h(Icon,{name:'search',size:26}),h('input',{autoFocus:true,type:'search',value:this.state.search,onChange:e=>this.setState({search:e.target.value}),placeholder:'What are you looking for?','aria-label':'Search products'})),h('span',{className:'eyebrow'},q?'SEARCH RESULTS':'POPULAR PIECES'),h('div',{className:'search-results'},results.length?results.slice(0,6).map(item=>h('button',{key:item.id,onClick:()=>this.product(item.id)},h('img',{src:img(item.image),alt:''}),h('span',null,item.name),h('span',null,money(item.price)),h(Icon,{name:'arrow',size:18}))):h('p',null,'No pieces found. Try a different search.'))))}
  saved(){let list=P.filter(x=>this.state.wishlist.includes(x.id));return h('main',{className:'section-wrap simple-page'},h('span',{className:'eyebrow'},'PERSONAL EDIT'),h('h1',null,'SAVED PIECES'),list.length?h('div',{className:'products-grid'},list.map((item,i)=>h(ProductCard,{key:item.id,item,index:i,openProduct:id=>this.product(id),toggleWish:id=>this.toggleWish(id),wishlist:this.state.wishlist}))):h('div',{className:'empty-content'},h('p',null,'Keep the pieces worth returning to.'),h(ArrowLink,{to:'/shop'},'DISCOVER THE COLLECTION')))}
  about(){return h('main',null,h('section',{className:'about-hero'},h('img',{src:img('campaign-duo.jpg'),alt:'LOUIS COR fashion editorial'}),h('div',null,h('span',{className:'eyebrow light'},'THE HOUSE / LOUIS COR'),h('h1',null,'WEAR THE\nUNEXPECTED.'))),h('section',{className:'statement-section'},h('span',{className:'eyebrow'},'OUR PERSPECTIVE'),h('h2',null,'LESS NOISE.\nMORE INTENTION.'),h('p',null,'A new name in modern essentials. Built around confident silhouettes, thoughtful details, and pieces for everyday expression.'),h(ArrowLink,{to:'/shop'},'EXPLORE THE COLLECTION')))}
- contact(){const info=window.LC_STORE_SETTINGS||{};return h('main',{className:'simple-page section-wrap'},h('span',{className:'eyebrow'},'CLIENT SERVICES'),h('h1',null,'CONTACT'),h('div',{className:'info-panels'},h('div',null,h('h3',null,'CUSTOMER SUPPORT'),info.support_email?h('a',{href:'mailto:'+info.support_email},info.support_email):h('p',null,'Customer contact information will be available before purchases are accepted.')),h('div',null,h('h3',null,'ORDERS'),h('p',null,'Online checkout is not yet available.'))),h(ArrowLink,{to:'/faq'},'FREQUENTLY ASKED QUESTIONS'))}
+ contact(){const info=window.LC_STORE_SETTINGS||{};return h('main',{className:'simple-page section-wrap'},h('span',{className:'eyebrow'},'CLIENT SERVICES'),h('h1',null,'CONTACT'),h('div',{className:'info-panels'},h('div',null,h('h3',null,'CUSTOMER SUPPORT'),info.support_email?h('a',{href:'mailto:'+info.support_email},info.support_email):h('p',null,'Customer contact information will be available before purchases are accepted.')),h('div',null,h('h3',null,'ORDERS'),h('p',null,this.state.checkoutReady?'Order and delivery details are available in your account.':'Online checkout is not yet available.'))),h(ArrowLink,{to:'/faq'},'FREQUENTLY ASKED QUESTIONS'))}
 
- faq(){return h('main',{className:'simple-page section-wrap'},h('span',{className:'eyebrow'},'HELP & INFORMATION'),h('h1',null,'QUESTIONS'),h('div',{className:'faq-list'},[['Can I place an order now?','Online checkout is not yet available. Browse the collection and save products while the store prepares ordering.'],['How do I save a piece?','Use the heart icon to save an item on this device.'],['Which sizes are offered?','Available sizes appear on each published product.'],['How do I change cookie settings?','Open Cookie settings in the footer. The store currently uses only essential local browser storage.'],['Where can I read the shipping and return information?','Visit the Shipping and Returns links in the footer for the currently confirmed information.']].map(x=>h('details',{key:x[0]},h('summary',null,x[0]),h('p',null,x[1])))))}
+ faq(){return h('main',{className:'simple-page section-wrap'},h('span',{className:'eyebrow'},'HELP & INFORMATION'),h('h1',null,'QUESTIONS'),h('div',{className:'faq-list'},[['How do I place an order?','Add an available size to your bag and proceed to secure checkout when ordering is available. Sign in to track your orders.'],['How do I save a piece?','Use the heart icon to save items to your account or this device.'],['Which sizes are offered?','Available sizes appear on each published product.'],['How do I change cookie settings?','Open Cookie settings in the footer. This store currently uses only necessary local browser storage.'],['Where can I read the shipping and return information?','Visit the Shipping and Returns links in the footer for the currently confirmed information.']].map(x=>h('details',{key:x[0]},h('summary',null,x[0]),h('p',null,x[1])))))}
 
  sizeGuide(){
    const headers=['SIZE','XS','S','M','L','XL','XXL'].map(x=>h('th',{key:x},x));
@@ -202,10 +220,16 @@ class App extends R.Component{
  legal(name){let t=window.LCLegal.pages()[name];if(!t)return this.notFound();return h('main',{className:'legal-page section-wrap'},h('span',{className:'eyebrow'},'CUSTOMER INFORMATION'),h('h1',null,t.title.toUpperCase()),h('p',{className:'lead'},t.intro),t.sections.map((sec,i)=>h('section',{key:i,className:'legal-section'},h('h2',null,sec[0]),h('p',null,sec[1]))),h('div',{className:'legal-end'},'Updated October 2026'))}
 
  notFound(){return h('main',{className:'section-wrap simple-page'},h('span',{className:'eyebrow'},'404'),h('h1',null,'PAGE NOT FOUND'),h(ArrowLink,{to:'/'},'RETURN HOME'))}
- cookieModal(){if(!this.state.cookieSettings)return null;return h('div',{className:'modal-screen',role:'dialog','aria-modal':'true','aria-label':'Site storage information'},h('div',{className:'prefs-modal'},h('div',{className:'modal-head'},h('h2',null,'COOKIE & STORAGE SETTINGS'),h(BtnIcon,{icon:'close',label:'Close',onClick:()=>this.setState({cookieSettings:false})})),h('p',null,'This website uses essential local storage for the shopping bag, saved pieces, and to remember this notice. No analytics or advertising trackers are installed.'),h('p',null,'To erase saved data, clear this site’s storage in your browser settings.'),h('div',{className:'prefs-actions'},h('button',{className:'solid-button',onClick:()=>this.consent()},'UNDERSTOOD'))))}
+ cookieModal(){if(!this.state.cookieSettings)return null;return h('div',{className:'modal-screen',role:'presentation',onClick:()=>this.setState({cookieSettings:false})},h('div',{className:'prefs-modal',role:'dialog','aria-modal':'true','aria-label':'Cookie and storage information',onClick:e=>e.stopPropagation()},
+ h('div',{className:'modal-head'},h('h2',null,'PRIVACY & STORAGE'),h(BtnIcon,{icon:'close',label:'Close',onClick:()=>this.setState({cookieSettings:false})})),
+ h('h3',null,'Necessary storage — always on'),
+ h('p',null,'This site saves your shopping bag, saved pieces, and sign-in session on your device. These functions do not use advertising or analytics trackers.'),
+ h('h3',null,'Optional tracking'),h('p',null,'No analytics, advertising, or social tracking is active. There are no optional tracking categories to enable.'),
+ h('p',null,'Clearing device items below does not delete your online account, cloud-saved items or sign you out.'),
+ h('div',{className:'prefs-actions'},h('button',{type:'button',className:'line-button',onClick:()=>this.clearLocalItems()},'CLEAR DEVICE ITEMS'),h('button',{type:'button',className:'solid-button',onClick:()=>this.consent()},'DONE'))))}
 
 
- render(){let path=this.state.path;let content=path==='/'?this.home():path.startsWith('/shop')?this.shop():path.startsWith('/product/')?this.productPage():path==='/saved'?this.saved():path.startsWith('/account')?h(window.LCCustomerAccountPage,{path,navigate:p=>this.nav(p)}):path==='/about'?this.about():path==='/contact'?this.contact():path==='/faq'?this.faq():path==='/size-guide'?this.sizeGuide():path.startsWith('/legal/')?this.legal(path.split('/')[2]):this.notFound();return h(R.Fragment,null,this.header(),content,this.footer(),this.cartDrawer(),this.searchOverlay(),this.state.consent===null?h(ConsentBanner,{onAccept:()=>this.consent(),onReject:()=>this.consent(),onSettings:()=>this.setState({cookieSettings:true})}):null,this.cookieModal(),this.state.toast?h('div',{className:'toast',role:'status'},this.state.toast):null)}
+ render(){let path=this.state.path;let content=path==='/'?this.home():path.startsWith('/shop')?this.shop():path.startsWith('/product/')?this.productPage():path==='/saved'?this.saved():path.startsWith('/account')?h(window.LCCustomerAccountPage,{path,navigate:p=>this.nav(p)}):path==='/about'?this.about():path==='/contact'?this.contact():path==='/faq'?this.faq():path==='/size-guide'?this.sizeGuide():path.startsWith('/legal/')?this.legal(path.split('/')[2]):this.notFound();return h(R.Fragment,null,this.header(),content,this.footer(),this.cartDrawer(),this.searchOverlay(),this.state.consent===null?h(ConsentBanner,{onClose:()=>this.consent(),onSettings:()=>this.setState({cookieSettings:true})}):null,this.cookieModal(),this.state.toast?h('div',{className:'toast',role:'status'},this.state.toast):null)}
 }
 RD.render(h(App),document.getElementById('app'));
 })();
