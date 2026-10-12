@@ -94,3 +94,12 @@
 @media(min-width:761px){.a-row-action-menu{justify-content:center}}
 
 .a-item-name img[src$="lc-monogram.svg"]{object-fit:contain;background:#f3f3f3;padding:11px}
+
+/* Merchandiser chooses the storefront swatch; no guessed color substitutions. */
+.a-color-pickers{padding:14px 16px;margin:20px 0;border:1px solid #e3e3e3;background:#fafafa}
+.a-color-pickers>strong{display:block;font-size:14px;margin-bottom:6px}
+.a-color-pickers>.a-muted{margin:0 0 12px;font-size:12px}
+.a-color-picker-row{display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #e7e7e7}
+.a-color-picker-name{min-width:0;flex:1;font-size:13px;overflow-wrap:anywhere}
+.a-color-picker-row input[type=color]{width:52px;height:41px;cursor:pointer;padding:3px;border:1px solid #b8b8b8;border-radius:3px;background:#fff;flex-shrink:0}
+.a-color-picker-hex{width:66px;text-align:right;color:#555;font:12px monospace;text-transform:uppercase}

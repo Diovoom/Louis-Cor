@@ -30,13 +30,15 @@ function Logo({className=''}){return h('img',{src:img('lc-monogram.svg'),alt:'LC
 function A({to='/',className='',children,onClick,...rest}){return h('a',Object.assign({href:'#'+to,className,onClick},rest),children)}
 function BtnIcon({icon,label,onClick,active=false,extra=null}){return h('button',{type:'button',className:'icon-btn'+(active?' active':''),onClick,'aria-label':label,title:label},h(Icon,{name:icon,size:21}),extra)}
 function ArrowLink({to,children,className=''}){return h(A,{to,className:'arrow-link '+className},h('span',null,children),h(Icon,{name:'arrow',size:20}))}
-function ProductCard({item,openProduct,toggleWish,wishlist,index=0}){return h('article',{className:'product-card',style:{animationDelay:(index%4)*60+'ms'}},
+const COLOR_DEFAULTS={black:'#191919',white:'#ffffff',cream:'#fffdd0',ivory:'#fffff0',beige:'#d7c5af',stone:'#bbb9ae',charcoal:'#414141',grey:'#808080',gray:'#808080',navy:'#14213d',gold:'#d4af37',silver:'#c0c0c0',burgundy:'#800020',olive:'#808000',tan:'#d2b48c',khaki:'#c3b091',offwhite:'#faf9f6',off_white:'#faf9f6'};
+function swatchColor(color,custom){const hex=custom?.[color];if(/^#[0-9a-f]{6}$/i.test(String(hex||'')))return hex;const key=String(color||'').trim().toLowerCase().replace(/[ -]/g,'');if(COLOR_DEFAULTS[key])return COLOR_DEFAULTS[key];if(typeof CSS!=='undefined'&&CSS.supports('color',String(color||''))){try{const ctx=document.createElement('canvas').getContext('2d');ctx.fillStyle=String(color);const converted=ctx.fillStyle;if(/^#[0-9a-f]{6}$/i.test(converted))return converted;}catch(_){}}return '#d9d9d9';}
+function ProductCard({item,openProduct,toggleWish,wishlist,index=0}){const soldOut=!item.variants?.some(v=>Number(v.qty)>0);return h('article',{className:'product-card',style:{animationDelay:(index%4)*60+'ms'}},
  h('div',{className:'product-image-wrap'},
  h('button',{className:'product-photo-button',type:'button',onClick:()=>openProduct(item.id),'aria-label':'View '+item.name},h('img',{src:img(item.image),alt:item.name,className:'product-photo'})),
- item.tag?h('span',{className:'product-sticker'},item.tag):null,
+ soldOut?h('span',{className:'product-sticker'},'SOLD OUT'):item.tag?h('span',{className:'product-sticker'},item.tag):null,
  h('button',{className:'heart-button '+(wishlist.includes(item.id)?'is-saved':''),type:'button',onClick:()=>toggleWish(item.id),'aria-label':wishlist.includes(item.id)?'Remove '+item.name+' from saved items':'Save '+item.name},h(Icon,{name:'heart',size:20,fill:wishlist.includes(item.id)})) ),
  h('button',{className:'product-meta',onClick:()=>openProduct(item.id),type:'button'},h('span',{className:'product-title'},item.name),h('span',null,money(item.price))),
- h('div',{className:'product-lower'},h('span',null,item.category),h('span',{className:'swatches'},item.colors.slice(0,3).map(c=>h('i',{title:c,'aria-label':c,key:c,className:'swatch swatch-'+c.toLowerCase().replace(/\s/g,'-')})))),
+ h('div',{className:'product-lower'},h('span',null,item.category),h('span',{className:'swatches'},item.colors.slice(0,3).map(c=>h('i',{title:c,'aria-label':c,key:c,className:'swatch',style:{backgroundColor:swatchColor(c,item.colorSwatches)}})))),
  h('button',{className:'quick-shop',type:'button',onClick:()=>openProduct(item.id)},'EXPLORE ',h(Icon,{name:'arrow',size:15}))
 )}
 function ConsentBanner({onClose,onSettings}){return h('div',{className:'cookie-banner',role:'region','aria-label':'Browser storage notice'},h('div',{className:'cookie-copy'},h('strong',null,'YOUR PRIVACY'),h('p',null,'We use necessary browser storage for sign-in, your bag, and saved items. No advertising or analytics trackers are installed. ',h(A,{to:'/legal/cookies'},'Read our storage policy.'))),h('div',{className:'cookie-actions'},h('button',{type:'button',onClick:onSettings,className:'line-button'},'STORAGE DETAILS'),h('button',{type:'button',onClick:onClose,className:'solid-button'},'CONTINUE')))}
@@ -104,7 +106,7 @@ class App extends R.Component{
    this.cartSyncQueue.catch(error=>this.announce('Your bag could not be saved. Please try again.'));
  }
 
- addToCart(item){if(!this.state.selectedSize){this.announce('Choose a size first');return}const color=this.state.selectedColor||item.colors[0];const key=item.id+'_'+this.state.selectedSize+'_'+color;const inBag=this.state.cart.filter(x=>x.key===key).reduce((n,x)=>n+x.qty,0);if(inBag>=99 || (window.LCStore && window.LCStore.available(item,color,this.state.selectedSize)<=inBag)){this.announce('This size and color is out of stock');return}let found=false;const cart=this.state.cart.map(x=>{if(x.key===key){found=true;return Object.assign({},x,{qty:x.qty+1})}return x});if(!found)cart.push({key,id:item.id,size:this.state.selectedSize,color,qty:1});this.setState({cart,cartOpen:true});put('lc-cart-v1',cart);this.syncCartLine(cart.find(x=>x.key===key))}
+ addToCart(item){if(!item?.colors?.length){this.announce('This product is not available');return}if(!this.state.selectedSize){this.announce('Choose a size first');return}const color=item.colors.includes(this.state.selectedColor)?this.state.selectedColor:item.colors[0];const key=item.id+'_'+this.state.selectedSize+'_'+color;const inBag=this.state.cart.filter(x=>x.key===key).reduce((n,x)=>n+x.qty,0);if(inBag>=99 || (window.LCStore && window.LCStore.available(item,color,this.state.selectedSize)<=inBag)){this.announce('This size and color is out of stock');return}let found=false;const cart=this.state.cart.map(x=>{if(x.key===key){found=true;return Object.assign({},x,{qty:x.qty+1})}return x});if(!found)cart.push({key,id:item.id,size:this.state.selectedSize,color,qty:1});this.setState({cart,cartOpen:true});put('lc-cart-v1',cart);this.syncCartLine(cart.find(x=>x.key===key))}
  changeQty(key,diff){const existing=this.state.cart.find(x=>x.key===key);const product=existing&&P.find(x=>x.id===existing.id);if(diff>0 && product && (existing.qty>=99 || (window.LCStore && window.LCStore.available(product,existing.color,existing.size)<=existing.qty))){this.announce('No more stock available in this size and color');return}let cart=this.state.cart.map(x=>x.key===key?Object.assign({},x,{qty:x.qty+diff}):x).filter(x=>x.qty>0);this.setState({cart});put('lc-cart-v1',cart);this.syncCartLine(cart.find(x=>x.key===key)||{...existing,qty:0})}
  consent(){const choices={necessary:true,acknowledgedAt:new Date().toISOString()};put('lc-cookie-consent-v1',choices);this.setState({consent:choices,cookieSettings:false})}
  clearLocalItems(){try{localStorage.removeItem('lc-cart-v1');localStorage.removeItem('lc-wishlist-v1');}catch(_){ }this.setState({cart:[],wishlist:[],cookieSettings:false});this.announce('Saved items on this device cleared.');}
@@ -153,8 +155,29 @@ class App extends R.Component{
   const photos=h('div',{className:'gallery'},
     h('div',{className:'main-product-image'},h('img',{src:img(gallery[this.state.gallery]||gallery[0]),alt:item.name+' view '+(this.state.gallery+1),className:''})),
     h('div',{className:'thumbnails'},gallery.map((name,i)=>h('button',{key:i,type:'button',className:this.state.gallery===i?'selected':'',onClick:()=>this.setState({gallery:i}),'aria-label':'View photo '+(i+1)},h('img',{src:img(name),alt:'Product photo '+(i+1)})))));
-  const colorButtons=h('div',{className:'color-options'},item.colors.map(c=>h('button',{key:c,title:c,'aria-label':'Select '+c,className:'color-select '+(this.state.selectedColor===c||(!this.state.selectedColor&&c===item.colors[0])?'selected':'')+' swatch-'+c.toLowerCase(),onClick:()=>this.setState({selectedColor:c})})));
-  const sizeButtons=h('div',{className:'size-options'},item.sizes.map(s=>h('button',{key:s,className:this.state.selectedSize===s?'selected':'',onClick:()=>this.setState({selectedSize:s})},s)));
+  const activeColor=item.colors.includes(this.state.selectedColor)?this.state.selectedColor:item.colors[0];
+  const available=(color,size)=>window.LCStore.available(item,color,size);
+  const colorButtons=h('div',{className:'color-options'},item.colors.map(c=>{
+    const hasStock=item.sizes.some(size=>available(c,size)>0);
+    return h('button',{key:c,type:'button',title:c+(hasStock?'':' — sold out'),
+      'aria-label':'Select '+c+(hasStock?'':' (sold out)'),
+      'aria-pressed':activeColor===c,
+      className:'color-choice '+(activeColor===c?'selected':'')+(hasStock?'':' unavailable'),
+      onClick:()=>this.setState({selectedColor:c,selectedSize:available(c,this.state.selectedSize)>0?this.state.selectedSize:''})},
+      h('span',{className:'color-select',style:{backgroundColor:swatchColor(c,item.colorSwatches)}},null),
+      h('span',{className:'color-choice-label'},c),
+      !hasStock&&h('span',{className:'color-choice-stock'},'Sold out'));
+  }));
+  const sizeButtons=h('div',{className:'size-options'},item.sizes.map(s=>{
+    const quantity=available(activeColor,s),unavailable=quantity<=0;
+    return h('button',{key:s,type:'button',className:(this.state.selectedSize===s?'selected ':'')+(unavailable?'sold-out':''),
+      disabled:unavailable,'aria-label':s+(unavailable?' — out of stock':''),title:unavailable?'Out of stock for '+activeColor:'Available',
+      onClick:()=>this.setState({selectedSize:s})},s);
+  }));
+  const anyStock=item.colors.some(c=>item.sizes.some(s=>available(c,s)>0));
+  const selectedStock=available(activeColor,this.state.selectedSize);
+  const sizeAvailable=item.sizes.some(s=>available(activeColor,s)>0);
+
   const accordion=h('div',{className:'detail-accordions'},
     h('details',{open:true},h('summary',null,'THE DETAILS'),h('p',null,item.fabric,' — ',item.description)),
     h('details',null,h('summary',null,'SIZE & FIT'),h('p',null,'Select your size above. Refer to the description for fit and fabric details.')),
@@ -164,9 +187,10 @@ class App extends R.Component{
     h('h1',null,item.name),
     h('div',{className:'price-line'},h('strong',null,money(item.price)),h('span',null,'USD')),
     h('p',{className:'product-description'},item.description),
-    h('div',{className:'option-block'},h('div',{className:'option-top'},h('strong',null,'COLOR'),h('span',null,this.state.selectedColor||item.colors[0])),colorButtons),
+    h('div',{className:'option-block'},h('div',{className:'option-top'},h('strong',null,'COLOR'),h('span',null,activeColor)),colorButtons),
     h('div',{className:'option-block'},h('div',{className:'option-top'},h('strong',null,'SIZE'),h(A,{to:'/size-guide'},'SIZE GUIDE ↗')),sizeButtons),
-    h('button',{className:'add-to-bag',onClick:()=>this.addToCart(item)},'ADD TO BAG ',h(Icon,{name:'arrow',size:21})),
+    h('p',{className:'stock-note','aria-live':'polite'},!anyStock?'SOLD OUT — ALL COLORS':!sizeAvailable?'THIS COLOR IS SOLD OUT':!this.state.selectedSize?'SELECT AN AVAILABLE SIZE':selectedStock<=0?'THIS SIZE IS OUT OF STOCK':''),
+    h('button',{className:'add-to-bag',type:'button',disabled:!anyStock||!sizeAvailable||Boolean(this.state.selectedSize&&selectedStock<=0),onClick:()=>this.addToCart(item)},!anyStock?'SOLD OUT':'ADD TO BAG ',h(Icon,{name:'arrow',size:21})),
     h('button',{className:'save-detail',onClick:()=>this.toggleWish(item.id)},h(Icon,{name:'heart',size:17,fill:this.state.wishlist.includes(item.id)}),this.state.wishlist.includes(item.id)?' SAVED':' SAVE FOR LATER'),
     accordion);
   const related=h('section',{className:'section-wrap related-products'},

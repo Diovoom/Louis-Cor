@@ -8,6 +8,8 @@ const currency=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'
 const slug=s=>String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const csv=s=>[...new Set(String(s||'').split(',').map(x=>x.trim()).filter(Boolean))];
 const variants=(colors,sizes,prev)=>{const byKey=new Map((prev||[]).map(x=>[x.color+'|'+x.size,x]));return colors.flatMap(color=>sizes.map(size=>byKey.get(color+'|'+size)||{color,size,qty:0,sku:''}));};
+const COLOR_DEFAULTS={black:'#191919',white:'#ffffff',cream:'#fffdd0',ivory:'#fffff0',beige:'#d7c5af',stone:'#bbb9ae',charcoal:'#414141',grey:'#808080',gray:'#808080',navy:'#14213d',gold:'#d4af37',silver:'#c0c0c0',burgundy:'#800020',olive:'#808000',tan:'#d2b48c',khaki:'#c3b091',offwhite:'#faf9f6',off_white:'#faf9f6'};
+function swatchColor(color,custom){const hex=custom?.[color];if(/^#[0-9a-f]{6}$/i.test(String(hex||'')))return hex;const key=String(color||'').trim().toLowerCase().replace(/[ -]/g,'');if(COLOR_DEFAULTS[key])return COLOR_DEFAULTS[key];if(typeof CSS!=='undefined'&&CSS.supports('color',String(color||''))){try{const ctx=document.createElement('canvas').getContext('2d');ctx.fillStyle=String(color);const converted=ctx.fillStyle;if(/^#[0-9a-f]{6}$/i.test(converted))return converted;}catch(_){}}return '#d9d9d9';}
 const localDay=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;};
 const shiftDays=(date,n)=>new Date(date.getFullYear(),date.getMonth(),date.getDate()+n);
 const salesDates=(period,from,to)=>{
@@ -26,7 +28,7 @@ const salesDates=(period,from,to)=>{
  return {start:start.toISOString(),end:end.toISOString()};
 };
 const photo=p=>p?.image&&(/^(https?:|data:image\/)/.test(p.image))?p.image:p?.image?'assets/'+p.image:'assets/hoodie.jpg';
-function Blank(){return {id:'',name:'',category:'Hoodies',group:'Unisex',price:0,compareAt:0,status:'draft',featured:false,description:'',fabric:'',tag:'',sku:'',image:'',imagePath:'',alt:'',colors:['Black'],sizes:['S','M','L','XL'],variants:variants(['Black'],['S','M','L','XL'],[])};}
+function Blank(){return {id:'',name:'',category:'Hoodies',group:'Unisex',price:0,compareAt:0,status:'draft',featured:false,description:'',fabric:'',tag:'',sku:'',image:'',imagePath:'',alt:'',colors:['Black'],colorSwatches:{},sizes:['S','M','L','XL'],variants:variants(['Black'],['S','M','L','XL'],[])};}
 function Field({label,value,onChange,type='text',placeholder='',multiline=false,help='',min,step}){
  return h('label',{className:'a-field'},h('span',null,label),multiline?h('textarea',{rows:4,value:value??'',placeholder,onChange:e=>onChange(e.target.value)}):h('input',{type,value:value??'',placeholder,min,step,onChange:e=>onChange(e.target.value)}),help&&h('small',null,help));
 }
@@ -69,9 +71,10 @@ class Owner extends R.Component{
  }
  setSalesPeriod(period){this.setState({salesPeriod:period},()=>this.loadSales())}
  navigate(page){this.setState({page,editor:null,menu:false,productMenu:null,chosenOrder:null,error:''});window.scrollTo(0,0)}
- edit(p){const editor=JSON.parse(JSON.stringify(p||Blank()));this.setState({editor,editorColors:editor.colors.join(', '),editorSizes:editor.sizes.join(', '),page:'products',productMenu:null,error:''});window.scrollTo(0,0)}
+ edit(p){const editor=JSON.parse(JSON.stringify(p||Blank()));this.setState({editor:{...editor,colorSwatches:editor.colorSwatches||{}},editorColors:editor.colors.join(', '),editorSizes:editor.sizes.join(', '),page:'products',productMenu:null,error:''});window.scrollTo(0,0)}
  change(k,v){this.setState(s=>({editor:{...s.editor,[k]:v}}));}
  changeOptions(k,v){this.setState(s=>{const p={...s.editor};p[k]=csv(v);p.variants=variants(p.colors,p.sizes,p.variants);return {editor:p,[k==='colors'?'editorColors':'editorSizes']:v}})}
+ changeColorSwatch(color,hex){if(!/^#[0-9a-f]{6}$/i.test(hex))return;this.setState(s=>({editor:{...s.editor,colorSwatches:{...(s.editor.colorSwatches||{}),[color]:hex}}}));}
  changeVariant(i,key,v){this.setState(s=>({editor:{...s.editor,variants:s.editor.variants.map((x,j)=>i===j?{...x,[key]:key==='qty'?Math.max(0,Math.floor(Number(v)||0)):v}:x)}}))}
  async uploadImage(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;this.setState({busy:true,error:''});try{const result=await api.uploadProductPhoto(file);this.setState(s=>({editor:{...s.editor,image:result.url,imagePath:result.path}}));}catch(err){this.error(err)}finally{this.setState({busy:false});}}
  async saveProduct(nextStatus){
@@ -81,7 +84,7 @@ class Owner extends R.Component{
   const id=p.id||slug(p.name);
   if(!id||!p.name?.trim()||!p.colors.length||!p.sizes.length){this.error('Enter a name, sizes and colors.');return;}
   if(!Number.isFinite(Number(p.price))||Number(p.price)<0){this.error('Enter a valid price.');return;}
-  p={...p,id,status,variants:variants(p.colors,p.sizes,p.variants)};
+  p={...p,id,status,colorSwatches:Object.fromEntries(Object.entries(p.colorSwatches||{}).filter(([color,hex])=>p.colors.includes(color)&&/^#[0-9a-f]{6}$/i.test(hex))),variants:variants(p.colors,p.sizes,p.variants)};
   this.setState({busy:true,error:'',notice:''});
   try{
     await api.upsertProduct(p);
@@ -175,6 +178,13 @@ class Owner extends R.Component{
      h('div',{className:'a-input-row'},
       Field({label:'Colors (comma-separated)',value:this.state.editorColors,onChange:v=>this.changeOptions('colors',v)}),
       Field({label:'Sizes (comma-separated)',value:this.state.editorSizes,onChange:v=>this.changeOptions('sizes',v)})),
+     h('div',{className:'a-color-pickers'},
+       h('strong',null,'Product color swatches'),
+       h('p',{className:'a-muted'},'Choose the exact swatch customers will see. Each color has its own stock by size.'),
+       p.colors.map(c=>h('label',{key:c,className:'a-color-picker-row'},
+         h('span',{className:'a-color-picker-name'},c),
+         h('input',{type:'color',value:swatchColor(c,p.colorSwatches),'aria-label':'Swatch for '+c,onChange:e=>this.changeColorSwatch(c,e.target.value)}),
+         h('span',{className:'a-color-picker-hex'},swatchColor(c,p.colorSwatches))))),
      h('div',{className:'a-variants'},
       h('div',{className:'a-variants-head'},h('span',null,'VARIANT'),h('span',null,'QUANTITY'),h('span',null,'SKU')),
       p.variants.map((v,i)=>h('div',{className:'a-variant-row',key:v.color+'|'+v.size},
