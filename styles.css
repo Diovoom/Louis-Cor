@@ -112,3 +112,11 @@ body, #app { max-width: 100%; }
 .stock-note{color:#555;font-size:10px;letter-spacing:.09em;min-height:15px;margin:0 0 9px}
 .add-to-bag:disabled{background:#777;color:#fff;cursor:not-allowed;opacity:1}
 @media(max-width:700px){.color-choice{min-width:62px}.color-choice .color-select{width:36px;height:36px;min-width:36px}.size-options button.sold-out::after{left:10%;width:80%}}
+
+/* Vertical atelier film on phones; preserve the original desktop editorial hero. */
+@media (max-width:700px) {
+  .home-hero .hero-video { object-position: center center; }
+}
+@media (max-width:700px) and (prefers-reduced-motion:reduce) {
+  .home-hero { background:linear-gradient(0deg,rgba(0,0,0,.76),rgba(0,0,0,.14) 76%),url('assets/lc-atelier-hero-mobile-poster.jpg') center / cover; }
+}
