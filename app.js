@@ -6,7 +6,7 @@ const R=window.React, RD=window.ReactDOM, h=R.createElement;
 if(!R.Fragment)R.Fragment=function Fragment(props){return props.children;};
 const P=window.LC_PRODUCTS, CFG=window.LC_CONFIG;
 const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);
-const img=name=>/^(data:image\/|https?:\/\/|blob:)/.test(name||'')?name:'assets/'+(name||'lc-monogram.svg');
+const img=name=>/^(data:image\/|https?:\/\/|blob:)/.test(name||'')?name:'assets/'+(name||'lc-monogram.svg?v=gold1');
 const get=(k,fallback)=>{try {const data=JSON.parse(localStorage.getItem(k));return data===null?fallback:data}catch(e){return fallback}};
 const put=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const route=()=>decodeURIComponent((window.location.hash||'#/').slice(1)||'/');
@@ -26,7 +26,7 @@ const iconPaths={
  mail:[['rect',{x:3,y:5,width:18,height:14}],['path',{d:'m3 6 9 7 9-7'}]]
 };
 function Icon({name,size=21,fill=false}){return h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:fill?'currentColor':'none',stroke:'currentColor',strokeWidth:1.35,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':'true'},(iconPaths[name]||iconPaths.arrow).map((p,i)=>h(p[0],Object.assign({key:i},p[1]))))}
-function Logo({className=''}){return h('img',{src:img('lc-monogram.svg'),alt:'LC monogram',className:'lc-logo '+className})}
+function Logo({className=''}){return h('picture',{className:'lc-logo-picture'},h('source',{media:'(max-width:700px)',srcSet:img('lc-brand.svg')}),h('img',{src:img('lc-brand-header.svg'),alt:'LOUIS COR',className:'lc-logo '+className}))}
 function A({to='/',className='',children,onClick,...rest}){return h('a',Object.assign({href:'#'+to,className,onClick},rest),children)}
 function BtnIcon({icon,label,onClick,active=false,extra=null}){return h('button',{type:'button',className:'icon-btn'+(active?' active':''),onClick,'aria-label':label,title:label},h(Icon,{name:icon,size:21}),extra)}
 function ArrowLink({to,children,className=''}){return h(A,{to,className:'arrow-link '+className},h('span',null,children),h(Icon,{name:'arrow',size:20}))}
