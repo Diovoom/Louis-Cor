@@ -62,3 +62,36 @@
 .cart-line img[src$="lc-monogram.svg"]{
  object-fit:contain!important;background:#f3f3f3;padding:22%;filter:none!important;
 }
+
+
+/* Mobile viewport stability: off-canvas drawers and long collection headings must not widen the document. */
+html { overflow-x: clip; overscroll-behavior-x: none; }
+body, #app { max-width: 100%; }
+@supports not (overflow: clip) {
+  html { overflow-x: hidden; }
+}
+@media (max-width: 760px) {
+  /* Keep the collection action beside the headline without widening the page. */
+  .section-title-row { min-width: 0; gap: 10px; }
+  .section-title-row > h2 {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: clamp(34px, 9.25vw, 65px);
+  }
+  .section-title-row > .arrow-link {
+    flex: 0 0 auto;
+    gap: 6px;
+    max-width: 43%;
+  }
+  /* Closed navigation drawers must be non-interactive and out of layout. */
+  .mobile-nav:not(.open), .cart-drawer:not(.open) {
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate3d(100%, 0, 0);
+  }
+  .mobile-nav.open, .cart-drawer.open {
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
