@@ -111,3 +111,7 @@
 .a-sidebar .lc-admin-sidebar-logo{display:block;width:76px;height:85px;max-width:100%;padding:7px;background:#fff;object-fit:contain}
 .a-item-name img[src*="lc-monogram.svg"]{background:#f3f3f3!important;object-fit:contain}
 @media(max-width:760px){.a-sidebar .lc-admin-sidebar-logo{width:72px;height:80px}}
+
+/* Outline LC logo: no black image background or white rectangular backing. */
+.a-sidebar .lc-admin-sidebar-logo {padding:0;background:transparent;filter:invert(1);width:70px;height:75px;object-fit:contain;}
+.lc-auth .lc-admin-auth-logo {filter:none;object-fit:contain;background:transparent;}
